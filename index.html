@@ -1,350 +1,28 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nemo IPTV</title>
-    <!-- Bibliotecas para reprodução de HLS e MPEG-TS no navegador -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
-    <style>
-        :root {
-            --primary: #00d2ff;
-            --bg-dark: #121212;
-            --card-bg: #1e1e1e;
-            --text: #ffffff;
-            --success: #28a745;
-            --danger: #dc3545;
-        }
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text);
-            text-align: center;
-        }
-        header {
-            padding: 20px;
-            background-color: #000;
-            border-bottom: 2px solid var(--primary);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        .logo {
-            max-width: 120px;
-            height: auto;
-            margin-bottom: 10px;
-            border-radius: 10px;
-        }
-
-        h1 { margin: 0; font-size: 24px; color: var(--primary); }
-        
-        .container { padding: 20px; max-width: 600px; margin: auto; }
-        
-        .btn {
-            display: inline-block;
-            padding: 12px 25px;
-            margin: 8px 0;
-            background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
-            color: #fff;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: bold;
-            border: none;
-            width: 100%;
-            box-sizing: border-box;
-            cursor: pointer;
-        }
-        .whatsapp-btn { background: #25D366; }
-        .card-btn { background: linear-gradient(90deg, #28a745 0%, #20c997 100%); }
-        .admin-btn { background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); color: #000; }
-        
-        .card {
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-        }
-        
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border: 1px solid #333;
-            background-color: #2a2a2a;
-            color: white;
-            box-sizing: border-box;
-            font-family: inherit;
-        }
-
-        .tab-menu {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            background: #2a2a2a;
-            color: #fff;
-            cursor: pointer;
-            border-radius: 5px;
-            font-weight: bold;
-        }
-        .tab-btn.active {
-            background: var(--primary);
-            color: #000;
-        }
-
-        .section-view { display: none; }
-        .section-view.active { display: block; }
-
-        .info-box {
-            background: #2a2a2a;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid var(--primary);
-            text-align: left;
-        }
-
-        video {
-            width: 100%;
-            max-height: 280px;
-            background: #000;
-            border-radius: 8px;
-            margin-top: 10px;
-        }
-
-        .playlist-container {
-            text-align: left;
-            margin-top: 15px;
-        }
-
-        .folder-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .folder-card {
-            background: #252525;
-            padding: 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            text-align: center;
-            border: 1px solid #333;
-            transition: 0.2s;
-        }
-        .folder-card:hover { border-color: var(--primary); background: #2a2a2a; }
-        .folder-card h4 { margin: 0; color: var(--primary); font-size: 14px; word-break: break-word; }
-
-        .item-lista {
-            background: #252525;
-            padding: 10px;
-            margin: 6px 0;
-            border-radius: 5px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-            border: 1px solid #333;
-        }
-        .item-lista:hover { background: #2f2f2f; border-color: var(--primary); }
-
-        ul { text-align: left; padding-left: 20px; }
-    </style>
-</head>
-<body onload="inicializarDados()">
-
-<header>
-    <img src="logo.jpg" alt="Logo Nemo IPTV" class="logo">
-    <h1>Nemo IPTV</h1>
-</header>
-
-<div class="container">
-    <!-- Seção do Player Web M3U Inteligente -->
-    <div class="card">
-        <h2>Player Web M3U</h2>
-        <p>Cole o link da sua lista M3U abaixo:</p>
-        <textarea id="m3u-input" rows="3" placeholder="http://exemplo.com/get.php?username=..."></textarea>
-        <button onclick="carregarListaM3U()" class="btn">Carregar Lista</button>
-
-        <!-- Área de Navegação por Pastas e Subpastas -->
-        <div id="painel-iptv" class="playlist-container" style="display: none;">
-            <div id="breadcrumb" style="margin-bottom: 10px; font-size: 13px; color: #aaa;">Início</div>
-            
-            <!-- Video Player Ativo -->
-            <video id="web-player" controls autoplay></video>
-            <h4 id="canal-reproduzindo" style="margin: 8px 0; color: var(--success); font-size: 14px;"></h4>
-
-            <input type="text" id="filtro-busca" placeholder="Pesquisar..." onkeyup="filtrarItens()" style="margin: 10px 0; display:none;">
-
-            <!-- Nível 1: Tipos Principais (Canais, Filmes, Séries) -->
-            <div id="view-tipos" class="folder-grid">
-                <div class="folder-card" onclick="abrirTipoPrincipal('Canais')">
-                    <h4>📺 Canais ao Vivo</h4>
-                </div>
-                <div class="folder-card" onclick="abrirTipoPrincipal('Filmes')">
-                    <h4>🎬 Filmes</h4>
-                </div>
-                <div class="folder-card" onclick="abrirTipoPrincipal('Series')">
-                    <h4>🍿 Séries</h4>
-                </div>
-            </div>
-
-            <!-- Nível 2: Sub-pastas (Grupos da Lista) -->
-            <div id="view-subpastas" style="display: none;">
-                <button onclick="voltarParaTipos()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Categorias</button>
-                <div id="lista-subpastas" class="folder-grid"></div>
-            </div>
-
-            <!-- Nível 3: Lista de Canais/Filmes da Subpasta -->
-            <div id="view-itens" style="display: none;">
-                <button onclick="voltarParaSubpastas()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Subpastas</button>
-                <div id="lista-conteudo" style="max-height: 250px; overflow-y: auto;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Seção de Download -->
-    <div class="card">
-        <h2>Nosso Aplicativo</h2>
-        <p>A melhor experiência de streaming na palma da sua mão.</p>
-        <a href="https://www.mediafire.com/file/svgbdbnebbrar2v/app-debug.apk/file" target="_blank" class="btn">Baixar App (MediaFire)</a>
-    </div>
-
-    <!-- Seção de Planos e Pagamento Avulso -->
-    <div class="card">
-        <h2>Assine Agora (Pix)</h2>
-        <p>Plano Completo</p>
-        <h3 style="color: var(--primary);">R$ 35,00 / mês</h3>
-        <a href="https://mpago.la/1n3PzNB" target="_blank" class="btn">Pagar com Pix</a>
-    </div>
-
-    <!-- Central de Acesso (Cliente / Administrador) -->
-    <div class="card">
-        <h2>Portal de Acesso</h2>
-        
-        <div class="tab-menu">
-            <button class="tab-btn active" onclick="mudarAba('cliente')">Sou Cliente</button>
-            <button class="tab-btn" onclick="mudarAba('admin')">Administrador</button>
-        </div>
-
-        <!-- ABA CLIENTE -->
-        <div id="view-cliente" class="section-view active">
-            <div id="cliente-login-box">
-                <p>Entre com seu usuário e senha criados pelo suporte.</p>
-                <form onsubmit="fazerLoginCliente(event)">
-                    <input type="text" id="cli-user" placeholder="Usuário" required>
-                    <input type="password" id="cli-pass" placeholder="Senha" required>
-                    <button type="submit" class="btn">Entrar na Conta</button>
-                </form>
-            </div>
-
-            <div id="cliente-painel" style="display: none;">
-                <h3 style="color: var(--primary);">Olá, <span id="painel-user-nome"></span>!</h3>
-                <div class="info-box">
-                    <p>Status: <strong style="color: var(--success);">Ativo</strong></p>
-                    <p>Vencimento da Mensalidade:</p>
-                    <h3 id="painel-vencimento" style="margin: 5px 0; color: #ffc107;">--/--/----</h3>
-                </div>
-
-                <p>Cadastre seu cartão para débito automático mensal:</p>
-                <a href="https://mpago.la/1VKgbdM" target="_blank" class="btn card-btn">Cadastrar Cartão (Automático)</a>
-
-                <hr style="border-color: #333; margin: 20px 0;">
-                
-                <h3>Pedir Filme / Série / Canal</h3>
-                <p style="font-size: 13px; color: #aaa;">Faltou algo na grade? Peça aqui para a administração:</p>
-                <form onsubmit="enviarSolicitacao(event)">
-                    <textarea id="conteudo-pedido" rows="2" placeholder="Ex: Gostaria que adicionassem o filme X ou o canal Y..." required></textarea>
-                    <button type="submit" class="btn" style="background: linear-gradient(90deg, #6610f2 0%, #6f42c1 100%);">Enviar Solicitação</button>
-                </form>
-
-                <button onclick="sairCliente()" class="btn" style="background: var(--danger); margin-top: 15px;">Sair</button>
-            </div>
-        </div>
-
-        <!-- ABA ADMINISTRADOR -->
-        <div id="view-admin" class="section-view">
-            <div id="admin-login-box">
-                <p>Acesse com seu usuário e senha de Administrador</p>
-                <input type="text" id="admin-user-input" placeholder="Usuário Admin" required>
-                <input type="password" id="admin-pass-input" placeholder="Senha Admin" required>
-                <button onclick="logarAdmin()" class="btn admin-btn">Entrar como Admin</button>
-            </div>
-
-            <div id="admin-painel" style="display: none;">
-                <h3 style="color: #ffc107;">Painel de Controle do Admin</h3>
-                
-                <div style="background: #242424; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                    <p style="margin-top:0; font-weight:bold;">Cadastrar Novo Cliente (Validade: 30 dias)</p>
-                    <input type="text" id="novo-user" placeholder="Usuário do Cliente">
-                    <input type="password" id="novo-pass" placeholder="Senha do Cliente">
-                    <button onclick="cadastrarCliente()" class="btn admin-btn">Criar Acesso do Cliente</button>
-                </div>
-
-                <div style="background: #242424; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                    <p style="margin-top:0; font-weight:bold;">Cadastrar Novo Administrador</p>
-                    <input type="text" id="novo-admin-user" placeholder="Novo Usuário Admin">
-                    <input type="password" id="novo-admin-pass" placeholder="Nova Senha Admin">
-                    <button onclick="cadastrarAdmin()" class="btn" style="background: #17a2b8;">Criar Novo Admin</button>
-                </div>
-
-                <hr style="border-color: #333; margin: 20px 0;">
-                
-                <h4 style="color: var(--primary);">Solicitações de Conteúdo dos Clientes:</h4>
-                <div id="lista-solicitacoes" style="max-height: 180px; overflow-y: auto; background: #1a1a1a; padding: 10px; border-radius: 5px; margin-bottom: 15px;"></div>
-
-                <hr style="border-color: #333; margin: 20px 0;">
-                
-                <h4>Clientes Cadastrados:</h4>
-                <div id="lista-clientes" style="max-height: 150px; overflow-y: auto;"></div>
-
-                <button onclick="sairAdmin()" class="btn" style="background: var(--danger); margin-top: 15px;">Sair do Admin</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Portal de Contato -->
-    <div class="card">
-        <h2>Precisa de Ajuda?</h2>
-        <p>Fale diretamente com nosso suporte.</p>
-        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20preciso%20de%20suporte%20na%20Nemo%20IPTV!" class="btn whatsapp-btn">Contato via WhatsApp</a>
-    </div>
-</div>
-
 <script>
+    const firebaseConfig = {
+        apiKey: "SUA_API_KEY_AQUI",
+        authDomain: "SEU_PROJETO.firebaseapp.com",
+        projectId: "SEU_PROJETO_ID",
+        storageBucket: "SEU_PROJETO.appspot.com",
+        messagingSenderId: "SEU_SENDER_ID",
+        appId: "SEU_APP_ID"
+    };
+
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+
     let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
     let tipoAtual = '';
     let subpastaAtual = '';
     let hlsInstance = null;
     let mpegtsPlayer = null;
 
-    function inicializarDados() {
-        if (!localStorage.getItem('nemo_admins')) {
-            localStorage.setItem('nemo_admins', JSON.stringify([{ user: 'admin', pass: 'admin123' }]));
-        }
-        if (!localStorage.getItem('nemo_clientes')) {
-            localStorage.setItem('nemo_clientes', JSON.stringify([]));
-        }
-        if (!localStorage.getItem('nemo_solicitacoes')) {
-            localStorage.setItem('nemo_solicitacoes', JSON.stringify([]));
-        }
-    }
-
     async function carregarListaM3U() {
         let inputTexto = document.getElementById('m3u-input').value.trim();
         if (!inputTexto) {
-            alert('Por favor, insira o link da lista M3U.');
+            alert('Por favor, insira o link ou conteúdo da lista M3U.');
             return;
         }
 
@@ -352,11 +30,15 @@
         if (inputTexto.startsWith('http://') || inputTexto.startsWith('https://')) {
             try {
                 document.getElementById('canal-reproduzindo').innerText = 'Baixando lista do servidor...';
-                let response = await fetch(inputTexto);
-                if (!response.ok) throw new Error('Erro na resposta');
+                
+                // Proxy CORS para contornar o bloqueio do GitHub Pages
+                let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(inputTexto);
+                let response = await fetch(proxyUrl);
+                
+                if (!response.ok) throw new Error('Erro na resposta do servidor');
                 textoM3U = await response.text();
             } catch (error) {
-                alert('Erro CORS ao baixar pelo link. Cole o conteúdo do arquivo M3U diretamente.');
+                alert('Erro ao baixar pelo link. Tente colar o conteúdo do arquivo M3U diretamente.');
                 document.getElementById('canal-reproduzindo').innerText = '';
                 return;
             }
@@ -370,7 +52,6 @@
     function processarTextoM3U(textoM3U) {
         let linhas = textoM3U.split('\n');
         let estrutura = { Canais: {}, Filmes: {}, Series: {} };
-
         let nomeAtual = "";
         let groupAtual = "Geral";
 
@@ -405,8 +86,7 @@
         }
 
         estruturaGlobal = estrutura;
-
-  let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
+        let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
         let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
         let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
 
@@ -425,8 +105,8 @@
         let subpastas = estruturaGlobal[tipo] || {};
         let divSub = document.getElementById('lista-subpastas');
         let html = '';
-
         let grupos = Object.keys(subpastas);
+
         if (grupos.length === 0) {
             divSub.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhuma subpasta encontrada.</p>';
             return;
@@ -503,15 +183,8 @@
         let video = document.getElementById('web-player');
         document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
 
-        // Limpar instâncias anteriores do player para evitar sobreposição
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
-        }
-        if (mpegtsPlayer) {
-            mpegtsPlayer.destroy();
-            mpegtsPlayer = null;
-        }
+        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+        if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
 
         if (url.includes('.m3u8') && Hls.isSupported()) {
             hlsInstance = new Hls();
@@ -521,26 +194,14 @@
                 video.play().catch(e => console.log(e));
             });
         } else if (mpegts.getFeatureList().mseLivePlayback) {
-            // Suporte para streams mpegts do painel IPTV via mpegts.js
-            mpegtsPlayer = mpegts.createPlayer({
-                type: 'mpegts',
-                url: url,
-                isLive: true,
-                cors: true
-            });
+            mpegtsPlayer = mpegts.createPlayer({ type: 'mpegts', url: url, isLive: true, cors: true });
             mpegtsPlayer.attachMediaElement(video);
             mpegtsPlayer.load();
-            mpegtsPlayer.play().catch(e => {
-                console.log(e);
-                alert("Erro ao iniciar a reprodução. Verifique a conexão com o servidor IPTV.");
-            });
+            mpegtsPlayer.play().catch(e => console.log(e));
         } else {
             video.src = url;
             video.load();
-            video.play().catch(e => {
-                console.log(e);
-                alert("Seu navegador não suporta a reprodução deste formato diretamente.");
-            });
+            video.play().catch(e => alert("Erro ao reproduzir fluxo diretamente."));
         }
     }
 
@@ -556,141 +217,4 @@
             document.getElementById('view-admin').classList.add('active');
         }
     }
-
-    function logarAdmin() {
-        let user = document.getElementById('admin-user-input').value.trim();
-        let pass = document.getElementById('admin-pass-input').value.trim();
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
-        let adminEncontrado = admins.find(a => a.user === user && a.pass === pass);
-
-        if (adminEncontrado) {
-            document.getElementById('admin-login-box').style.display = 'none';
-            document.getElementById('admin-painel').style.display = 'block';
-            atualizarListaClientes();
-            atualizarListaSolicitacoes();
-        } else {
-            alert('Usuário ou senha de Administrador incorretos!');
-        }
-    }
-
-    function cadastrarAdmin() {
-        let user = document.getElementById('novo-admin-user').value.trim();
-        let pass = document.getElementById('novo-admin-pass').value.trim();
-        if (!user || !pass) return alert('Preencha os campos.');
-
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
-        if (admins.some(a => a.user === user)) return alert('Admin já existe!');
-
-        admins.push({ user, pass });
-        localStorage.setItem('nemo_admins', JSON.stringify(admins));
-        alert('Administrador cadastrado!');
-        document.getElementById('novo-admin-user').value = '';
-        document.getElementById('novo-admin-pass').value = '';
-    }
-
-    function cadastrarCliente() {
-        let user = document.getElementById('novo-user').value.trim();
-        let pass = document.getElementById('novo-pass').value.trim();
-        if (!user || !pass) return alert('Preencha os campos.');
-
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
-        if (clientes.some(c => c.user === user)) return alert('Cliente já existe!');
-
-        let venc = new Date();
-        venc.setDate(venc.getDate() + 30);
-
-        clientes.push({ user, pass, vencimento: venc.toLocaleDateString('pt-BR') });
-        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
-        alert('Cliente cadastrado com sucesso!');
-        document.getElementById('novo-user').value = '';
-        document.getElementById('novo-pass').value = '';
-        atualizarListaClientes();
-    }
-
-    function atualizarListaClientes() {
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
-        let div = document.getElementById('lista-clientes');
-        if (clientes.length === 0) {
-            div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum cliente cadastrado.</p>';
-            return;
-        }
-        let html = '<ul style="font-size: 13px;">';
-        clientes.forEach((c, index) => {
-            html += `<li><b>${c.user}</b> - Vence: ${c.vencimento} <button onclick="removerCliente(${index})" style="background:red; color:white; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;">X</button></li>`;
-        });
-        html += '</ul>';
-        div.innerHTML = html;
-    }
-
-    function removerCliente(index) {
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
-        clientes.splice(index, 1);
-        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
-        atualizarListaClientes();
-    }
-
-    function enviarSolicitacao(event) {
-        event.preventDefault();
-        let texto = document.getElementById('conteudo-pedido').value.trim();
-        let clienteAtual = document.getElementById('painel-user-nome').innerText;
-        if (!texto) return;
-
-        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
-        solicitacoes.push({ cliente: clienteAtual, conteudo: texto, data: new Date().toLocaleDateString('pt-BR') });
-        localStorage.setItem('nemo_solicitacoes', JSON.stringify(solicitacoes));
-        alert('Solicitação enviada!');
-        document.getElementById('conteudo-pedido').value = '';
-    }
-
-    function atualizarListaSolicitacoes() {
-        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
-        let div = document.getElementById('lista-solicitacoes');
-        if (solicitacoes.length === 0) {
-            div.innerHTML = '<p style="color: #aaa; font-size: 13px; margin:0;">Nenhuma solicitação.</p>';
-            return;
-        }
-        let html = '<ul style="font-size: 13px; margin:0; padding-left:15px;">';
-        solicitacoes.forEach((s, index) => {
-            html += `<li style="margin-bottom: 8px;"><b>${s.cliente}</b> pediu: "${s.conteudo}" <button onclick="removerSolicitacao(${index})" style="background:var(--success); color:white; border:none; padding:2px 6px; border-radius:3px; cursor:pointer; float:right;">Concluído</button></li>`;
-        });
-        html += '</ul>';
-        div.innerHTML = html;
-    }
-
-    function removerSolicitacao(index) {
-        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
-        solicitacoes.splice(index, 1);
-        localStorage.setItem('nemo_solicitacoes', JSON.stringify(solicitacoes));
-        atualizarListaSolicitacoes();
-    }
-
-    function sairAdmin() {
-        document.getElementById('admin-painel').style.display = 'none';
-        document.getElementById('admin-login-box').style.display = 'block';
-    }
-
-    function fazerLoginCliente(event) {
-        event.preventDefault();
-        let user = document.getElementById('cli-user').value.trim();
-        let pass = document.getElementById('cli-pass').value.trim();
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
-        let clienteEncontrado = clientes.find(c => c.user === user && c.pass === pass);
-
-        if (clienteEncontrado) {
-            document.getElementById('painel-user-nome').innerText = clienteEncontrado.user;
-            document.getElementById('painel-vencimento').innerText = clienteEncontrado.vencimento;
-            document.getElementById('cliente-login-box').style.display = 'none';
-            document.getElementById('cliente-painel').style.display = 'block';
-        } else {
-            alert('Dados inválidos ou cliente não cadastrado.');
-        }
-    }
-
-    function sairCliente() {
-        document.getElementById('cliente-painel').style.display = 'none';
-        document.getElementById('cliente-login-box').style.display = 'block';
-    }
 </script>
-
-</body>
-</html>
