@@ -1,220 +1,478 @@
-<script>
-    const firebaseConfig = {
-        apiKey: "SUA_API_KEY_AQUI",
-        authDomain: "SEU_PROJETO.firebaseapp.com",
-        projectId: "SEU_PROJETO_ID",
-        storageBucket: "SEU_PROJETO.appspot.com",
-        messagingSenderId: "SEU_SENDER_ID",
-        appId: "SEU_APP_ID"
-    };
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nemo IPTV - Central</title>
+    <!-- CDNs de Players e Firebase -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root { --primary: #00d2ff; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --success: #22c55e; }
+        body { background-color: var(--bg); color: var(--text); font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .card { background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        input, button, textarea { width: 100%; padding: 10px; margin-top: 8px; margin-bottom: 8px; box-sizing: border-box; border-radius: 5px; border: 1px solid #475569; background: #0f172a; color: white; }
+        button { background: var(--primary); color: #0f172a; font-weight: bold; cursor: pointer; border: none; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 10px; background: #334155; border: none; color: white; border-radius: 5px; cursor: pointer; }
+        .tab-btn.active { background: var(--primary); color: #0f172a; font-weight: bold; }
+        .section-view { display: none; }
+        .section-view.active { display: block; }
+        video { width: 100%; max-height: 300px; background: black; border-radius: 5px; }
+        .folder-card { background: #334155; padding: 10px; margin-bottom: 8px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .item-lista { background: #1e293b; border: 1px solid #334155; padding: 10px; margin-bottom: 6px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2 style="color:var(--primary); margin:5px 0;">Nemo IPTV</h2>
+        </div>
 
-    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+        <div class="tabs">
+            <button class="tab-btn active" onclick="mudarAba('cliente')">Área do Cliente</button>
+            <button class="tab-btn" onclick="mudarAba('admin')">Painel Admin</button>
+        </div>
 
-    let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
-    let tipoAtual = '';
-    let subpastaAtual = '';
-    let hlsInstance = null;
-    let mpegtsPlayer = null;
+        <!-- ABA CLIENTE -->
+        <div id="view-cliente" class="section-view active">
+            <div id="cliente-login-box" class="card">
+                <h3>Login do Cliente</h3>
+                <form onsubmit="fazerLoginCliente(event)">
+                    <input type="text" id="cli-user" placeholder="Usuário" required>
+                    <input type="password" id="cli-pass" placeholder="Senha" required>
+                    <button type="submit">Entrar</button>
+                </form>
+            </div>
 
-    async function carregarListaM3U() {
-        let inputTexto = document.getElementById('m3u-input').value.trim();
-        if (!inputTexto) {
-            alert('Por favor, insira o link ou conteúdo da lista M3U.');
-            return;
+            <div id="cliente-painel" class="card" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Bem-vindo, <span id="painel-user-nome"></span></h3>
+                    <button onclick="sairCliente()" style="width:auto; padding:5px 10px; background:red; color:white;">Sair</button>
+                </div>
+                <p style="font-size:13px; color:#aaa;">Vencimento: <span id="painel-vencimento" style="color:var(--success);"></span></p>
+                
+                <hr style="border-color:#334155;">
+
+                <h4>Carregar Lista M3U</h4>
+                <textarea id="m3u-input" rows="3" placeholder="Cole o Link da lista M3U (com proxy automático) ou o conteúdo de texto..."></textarea>
+                <button onclick="carregarListaM3U()">Processar Lista</button>
+
+                <div id="painel-iptv" style="display:none; margin-top:15px;">
+                    <p id="breadcrumb" style="font-size:12px; color:var(--primary); font-weight:bold;">Início</p>
+                    <input type="text" id="filtro-busca" placeholder="Pesquisar item..." onkeyup="filtrarItens()" style="display:none;">
+                    
+                    <div id="view-tipos" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:10px;">
+                        <div class="folder-card" onclick="abrirTipoPrincipal('Canais')" style="flex-direction:column; text-align:center;">📺<br>Canais</div>
+                        <div class="folder-card" onclick="abrirTipoPrincipal('Filmes')" style="flex-direction:column; text-align:center;">🎬<br>Filmes</div>
+                        <div class="folder-card" onclick="abrirTipoPrincipal('Series')" style="flex-direction:column; text-align:center;">🍿<br>Séries</div>
+                    </div>
+
+                    <div id="view-subpastas" style="display:none; margin-top:10px;">
+                        <button onclick="voltarParaTipos()" style="background:#475569; width:auto; padding:5px 10px; margin-bottom:10px;">⬅ Voltar</button>
+                        <div id="lista-subpastas"></div>
+                    </div>
+
+                    <div id="view-itens" style="display:none; margin-top:10px;">
+                        <button onclick="voltarParaSubpastas()" style="background:#475569; width:auto; padding:5px 10px; margin-bottom:10px;">⬅ Voltar aos Grupos</button>
+                        <div id="lista-conteudo" style="max-height:250px; overflow-y:auto;"></div>
+                    </div>
+
+                    <div style="margin-top:15px;">
+                        <p id="canal-reproduzindo" style="font-size:13px; color:var(--success); font-weight:bold;"></p>
+                        <video id="web-player" controls playsinline></video>
+                    </div>
+                </div>
+
+                <hr style="border-color:#334155; margin:15px 0;">
+
+                <h4>Pedir Conteúdo / Filme</h4>
+                <form onsubmit="enviarSolicitacao(event)">
+                    <input type="text" id="conteudo-pedido" placeholder="Ex: Filme X ou Canal Y" required>
+                    <button type="submit">Enviar Solicitação</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ABA ADMIN -->
+        <div id="view-admin" class="section-view">
+            <div id="admin-login-box" class="card">
+                <h3>Login Administrador</h3>
+                <input type="text" id="admin-user-input" placeholder="Usuário Admin">
+                <input type="password" id="admin-pass-input" placeholder="Senha Admin">
+                <button onclick="logarAdmin()">Entrar no Painel</button>
+            </div>
+
+            <div id="admin-painel" class="card" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Painel de Controle</h3>
+                    <button onclick="sairAdmin()" style="width:auto; padding:5px 10px; background:red; color:white;">Sair</button>
+                </div>
+
+                <h4 style="margin-top:15px;">Cadastrar Novo Cliente</h4>
+                <input type="text" id="novo-user" placeholder="Usuário do Cliente">
+                <input type="password" id="novo-pass" placeholder="Senha do Cliente">
+                <button onclick="cadastrarCliente()">Salvar Cliente (30 dias)</button>
+
+                <h4 style="margin-top:15px;">Clientes Cadastrados</h4>
+                <div id="lista-clientes" style="max-height:150px; overflow-y:auto; background:#0f172a; padding:8px; border-radius:5px;"></div>
+
+                <h4 style="margin-top:15px;">Solicitações dos Clientes</h4>
+                <div id="lista-solicitacoes" style="max-height:150px; overflow-y:auto; background:#0f172a; padding:8px; border-radius:5px;"></div>
+
+                <h4 style="margin-top:15px;">Criar Novo Admin</h4>
+                <input type="text" id="novo-admin-user" placeholder="Novo Admin">
+                <input type="password" id="novo-admin-pass" placeholder="Senha do Admin">
+                <button onclick="cadastrarAdmin()">Cadastrar Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE FUNCIONAMENTO -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY_AQUI",
+            authDomain: "SEU_PROJETO.firebaseapp.com",
+            projectId: "SEU_PROJETO_ID",
+            storageBucket: "SEU_PROJETO.appspot.com",
+            messagingSenderId: "SEU_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
+            firebase.initializeApp(firebaseConfig);
         }
+        const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
 
-        let textoM3U = "";
-        if (inputTexto.startsWith('http://') || inputTexto.startsWith('https://')) {
-            try {
-                document.getElementById('canal-reproduzindo').innerText = 'Baixando lista do servidor...';
-                
-                // Proxy CORS para contornar o bloqueio do GitHub Pages
-                let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(inputTexto);
-                let response = await fetch(proxyUrl);
-                
-                if (!response.ok) throw new Error('Erro na resposta do servidor');
-                textoM3U = await response.text();
-            } catch (error) {
-                alert('Erro ao baixar pelo link. Tente colar o conteúdo do arquivo M3U diretamente.');
-                document.getElementById('canal-reproduzindo').innerText = '';
+        let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
+        let tipoAtual = '';
+        let subpastaAtual = '';
+        let hlsInstance = null;
+        let mpegtsPlayer = null;
+
+        async function carregarListaM3U() {
+            let inputTexto = document.getElementById('m3u-input').value.trim();
+            if (!inputTexto) {
+                alert('Por favor, insira o link ou conteúdo da lista M3U.');
                 return;
             }
-        } else {
-            textoM3U = inputTexto;
+
+            let textoM3U = "";
+            if (inputTexto.startsWith('http://') || inputTexto.startsWith('https://')) {
+                try {
+                    document.getElementById('canal-reproduzindo').innerText = 'Baixando lista do servidor...';
+                    
+                    let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(inputTexto);
+                    let response = await fetch(proxyUrl);
+                    
+                    if (!response.ok) throw new Error('Erro na resposta do servidor');
+                    textoM3U = await response.text();
+                } catch (error) {
+                    alert('Erro ao baixar pelo link. Tente colar o conteúdo do arquivo M3U diretamente.');
+                    document.getElementById('canal-reproduzindo').innerText = '';
+                    return;
+                }
+            } else {
+                textoM3U = inputTexto;
+            }
+
+            processarTextoM3U(textoM3U);
         }
 
-        processarTextoM3U(textoM3U);
-    }
+        function processarTextoM3U(textoM3U) {
+            let linhas = textoM3U.split('\n');
+            let estrutura = { Canais: {}, Filmes: {}, Series: {} };
+            let nomeAtual = "";
+            let groupAtual = "Geral";
 
-    function processarTextoM3U(textoM3U) {
-        let linhas = textoM3U.split('\n');
-        let estrutura = { Canais: {}, Filmes: {}, Series: {} };
-        let nomeAtual = "";
-        let groupAtual = "Geral";
+            for (let i = 0; i < linhas.length; i++) {
+                let linha = linhas[i].trim();
+                if (linha.startsWith('#EXTINF:')) {
+                    let partesVirgula = linha.split(',');
+                    nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
 
-        for (let i = 0; i < linhas.length; i++) {
-            let linha = linhas[i].trim();
-            if (linha.startsWith('#EXTINF:')) {
-                let partesVirgula = linha.split(',');
-                nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
+                    if (linha.includes('group-title="')) {
+                        let match = linha.match(/group-title="([^"]+)"/);
+                        if (match && match[1]) groupAtual = match[1].trim();
+                    }
+                } else if (linha && !linha.startsWith('#')) {
+                    let urlStream = linha;
+                    let item = { nome: nomeAtual || "Sem Nome", url: urlStream };
 
-                if (linha.includes('group-title="')) {
-                    let match = linha.match(/group-title="([^"]+)"/);
-                    if (match && match[1]) groupAtual = match[1].trim();
+                    let buscaTipo = (groupAtual + " " + nomeAtual).toLowerCase();
+                    let destino = 'Canais';
+
+                    if (buscaTipo.includes('filme') || buscaTipo.includes('movie') || buscaTipo.includes('vod') || buscaTipo.includes('cinema') || buscaTipo.includes('lançamento')) {
+                        destino = 'Filmes';
+                    } else if (buscaTipo.includes('serie') || buscaTipo.includes('série') || buscaTipo.includes('temporada') || buscaTipo.includes('episodio') || buscaTipo.includes('ep.')) {
+                        destino = 'Series';
+                    }
+
+                    if (!estrutura[destino][groupAtual]) {
+                        estrutura[destino][groupAtual] = [];
+                    }
+                    estrutura[destino][groupAtual].push(item);
                 }
-            } else if (linha && !linha.startsWith('#')) {
-                let urlStream = linha;
-                let item = { nome: nomeAtual || "Sem Nome", url: urlStream };
+            }
 
-                let buscaTipo = (groupAtual + " " + nomeAtual).toLowerCase();
-                let destino = 'Canais';
+            estruturaGlobal = estrutura;
+            let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
+            let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
+            let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
 
-                if (buscaTipo.includes('filme') || buscaTipo.includes('movie') || buscaTipo.includes('vod') || buscaTipo.includes('cinema') || buscaTipo.includes('lançamento')) {
-                    destino = 'Filmes';
-                } else if (buscaTipo.includes('serie') || buscaTipo.includes('série') || buscaTipo.includes('temporada') || buscaTipo.includes('episodio') || buscaTipo.includes('ep.')) {
-                    destino = 'Series';
-                }
+            document.getElementById('painel-iptv').style.display = 'block';
+            document.getElementById('canal-reproduzindo').innerText = '';
+            voltarParaTipos();
+            alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
+        }
 
-                if (!estrutura[destino][groupAtual]) {
-                    estrutura[destino][groupAtual] = [];
-                }
-                estrutura[destino][groupAtual].push(item);
+        function abrirTipoPrincipal(tipo) {
+            tipoAtual = tipo;
+            document.getElementById('view-tipos').style.display = 'none';
+            document.getElementById('view-subpastas').style.display = 'block';
+            document.getElementById('breadcrumb').innerText = `Início > ${tipo}`;
+            
+            let subpastas = estruturaGlobal[tipo] || {};
+            let divSub = document.getElementById('lista-subpastas');
+            let html = '';
+            let grupos = Object.keys(subpastas);
+
+            if (grupos.length === 0) {
+                divSub.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhuma subpasta encontrada.</p>';
+                return;
+            }
+
+            grupos.forEach(grupo => {
+                let qtd = subpastas[grupo].length;
+                let grupoSeguro = grupo.replace(/'/g, "\\'");
+                html += `<div class="folder-card" onclick="abrirSubpasta('${grupoSeguro}')">
+                    <h4>📁 ${grupo}</h4>
+                    <span style="font-size:11px; color:#aaa;">(${qtd} itens)</span>
+                </div>`;
+            });
+            divSub.innerHTML = html;
+        }
+
+        function abrirSubpasta(grupo) {
+            subpastaAtual = grupo;
+            document.getElementById('view-subpastas').style.display = 'none';
+            document.getElementById('view-itens').style.display = 'block';
+            document.getElementById('filtro-busca').style.display = 'block';
+            document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual} > ${grupo}`;
+            document.getElementById('filtro-busca').value = '';
+            renderizarItens(estruturaGlobal[tipoAtual][grupo] || []);
+        }
+
+        function voltarParaTipos() {
+            tipoAtual = '';
+            subpastaAtual = '';
+            document.getElementById('view-subpastas').style.display = 'none';
+            document.getElementById('view-itens').style.display = 'none';
+            document.getElementById('view-tipos').style.display = 'grid';
+            document.getElementById('filtro-busca').style.display = 'none';
+            document.getElementById('breadcrumb').innerText = 'Início';
+            document.getElementById('filtro-busca').value = '';
+        }
+
+        function voltarParaSubpastas() {
+            subpastaAtual = '';
+            document.getElementById('view-itens').style.display = 'none';
+            document.getElementById('view-subpastas').style.display = 'block';
+            document.getElementById('filtro-busca').style.display = 'none';
+            document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual}`;
+            document.getElementById('filtro-busca').value = '';
+        }
+
+        function renderizarItens(itens) {
+            let divLista = document.getElementById('lista-conteudo');
+            if (itens.length === 0) {
+                divLista.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhum item encontrado.</p>';
+                return;
+            }
+
+            let html = '';
+            itens.forEach((item) => {
+                let nomeSeguro = item.nome.replace(/'/g, "\\'");
+                let urlSegura = item.url.replace(/'/g, "\\'");
+                html += `<div class="item-lista" onclick="reproduzirStream('${urlSegura}', '${nomeSeguro}')">
+                    <span>▶ ${item.nome}</span>
+                    <span style="font-size:11px; color:var(--primary);">Assistir</span>
+                </div>`;
+            });
+            divLista.innerHTML = html;
+        }
+
+        function filtrarItens() {
+            let termo = document.getElementById('filtro-busca').value.toLowerCase();
+            let itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual] || [];
+            let filtrados = itensOriginais.filter(i => i.nome.toLowerCase().includes(termo));
+            renderizarItens(filtrados);
+        }
+
+        function reproduzirStream(url, nome) {
+            let video = document.getElementById('web-player');
+            document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
+
+            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+            if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
+
+            if (url.includes('.m3u8') && Hls.isSupported()) {
+                hlsInstance = new Hls();
+                hlsInstance.loadSource(url);
+                hlsInstance.attachMedia(video);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play().catch(e => console.log(e));
+                });
+            } else if (mpegts.getFeatureList().mseLivePlayback) {
+                mpegtsPlayer = mpegts.createPlayer({ type: 'mpegts', url: url, isLive: true, cors: true });
+                mpegtsPlayer.attachMediaElement(video);
+                mpegtsPlayer.load();
+                mpegtsPlayer.play().catch(e => console.log(e));
+            } else {
+                video.src = url;
+                video.load();
+                video.play().catch(e => alert("Erro ao reproduzir fluxo diretamente."));
             }
         }
 
-        estruturaGlobal = estrutura;
-        let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
-        let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
-        let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
+        function mudarAba(aba) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
 
-        document.getElementById('painel-iptv').style.display = 'block';
-        document.getElementById('canal-reproduzindo').innerText = '';
-        voltarParaTipos();
-        alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
-    }
-
-    function abrirTipoPrincipal(tipo) {
-        tipoAtual = tipo;
-        document.getElementById('view-tipos').style.display = 'none';
-        document.getElementById('view-subpastas').style.display = 'block';
-        document.getElementById('breadcrumb').innerText = `Início > ${tipo}`;
-        
-        let subpastas = estruturaGlobal[tipo] || {};
-        let divSub = document.getElementById('lista-subpastas');
-        let html = '';
-        let grupos = Object.keys(subpastas);
-
-        if (grupos.length === 0) {
-            divSub.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhuma subpasta encontrada.</p>';
-            return;
+            if (aba === 'cliente') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('view-cliente').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('view-admin').classList.add('active');
+            }
         }
 
-        grupos.forEach(grupo => {
-            let qtd = subpastas[grupo].length;
-            let grupoSeguro = grupo.replace(/'/g, "\\'");
-            html += `<div class="folder-card" onclick="abrirSubpasta('${grupoSeguro}')">
-                <h4>📁 ${grupo}</h4>
-                <span style="font-size:11px; color:#aaa;">(${qtd} itens)</span>
-            </div>`;
-        });
-        divSub.innerHTML = html;
-    }
-
-    function abrirSubpasta(grupo) {
-        subpastaAtual = grupo;
-        document.getElementById('view-subpastas').style.display = 'none';
-        document.getElementById('view-itens').style.display = 'block';
-        document.getElementById('filtro-busca').style.display = 'block';
-        document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual} > ${grupo}`;
-        document.getElementById('filtro-busca').value = '';
-        renderizarItens(estruturaGlobal[tipoAtual][grupo] || []);
-    }
-
-    function voltarParaTipos() {
-        tipoAtual = '';
-        subpastaAtual = '';
-        document.getElementById('view-subpastas').style.display = 'none';
-        document.getElementById('view-itens').style.display = 'none';
-        document.getElementById('view-tipos').style.display = 'grid';
-        document.getElementById('filtro-busca').style.display = 'none';
-        document.getElementById('breadcrumb').innerText = 'Início';
-        document.getElementById('filtro-busca').value = '';
-    }
-
-    function voltarParaSubpastas() {
-        subpastaAtual = '';
-        document.getElementById('view-itens').style.display = 'none';
-        document.getElementById('view-subpastas').style.display = 'block';
-        document.getElementById('filtro-busca').style.display = 'none';
-        document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual}`;
-        document.getElementById('filtro-busca').value = '';
-    }
-
-    function renderizarItens(itens) {
-        let divLista = document.getElementById('lista-conteudo');
-        if (itens.length === 0) {
-            divLista.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhum item encontrado.</p>';
-            return;
+        async function logarAdmin() {
+            let user = document.getElementById('admin-user-input').value.trim();
+            let pass = document.getElementById('admin-pass-input').value.trim();
+            if (!db) return alert('Firebase não configurado.');
+            try {
+                let doc = await db.collection('nemo_admins').doc(user).get();
+                if (doc.exists && doc.data().pass === pass) {
+                    document.getElementById('admin-login-box').style.display = 'none';
+                    document.getElementById('admin-painel').style.display = 'block';
+                    atualizarListaClientes();
+                    atualizarListaSolicitacoes();
+                } else {
+                    alert('Usuário ou senha incorretos!');
+                }
+            } catch (e) {
+                alert('Erro ao conectar.');
+            }
         }
 
-        let html = '';
-        itens.forEach((item) => {
-            let nomeSeguro = item.nome.replace(/'/g, "\\'");
-            let urlSegura = item.url.replace(/'/g, "\\'");
-            html += `<div class="item-lista" onclick="reproduzirStream('${urlSegura}', '${nomeSeguro}')">
-                <span>▶ ${item.nome}</span>
-                <span style="font-size:11px; color:var(--primary);">Assistir</span>
-            </div>`;
-        });
-        divLista.innerHTML = html;
-    }
+        async function cadastrarAdmin() {
+            let user = document.getElementById('novo-admin-user').value.trim();
+            let pass = document.getElementById('novo-admin-pass').value.trim();
+            if (!user || !pass || !db) return alert('Preencha os campos.');
+            try {
+                await db.collection('nemo_admins').doc(user).set({ user, pass });
+                alert('Admin cadastrado!');
+            } catch(e) { alert('Erro.'); }
+        }
 
-    function filtrarItens() {
-        let termo = document.getElementById('filtro-busca').value.toLowerCase();
-        let itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual] || [];
-        let filtrados = itensOriginais.filter(i => i.nome.toLowerCase().includes(termo));
-        renderizarItens(filtrados);
-    }
+        async function cadastrarCliente() {
+            let user = document.getElementById('novo-user').value.trim();
+            let pass = document.getElementById('novo-pass').value.trim();
+            if (!user || !pass || !db) return alert('Preencha os campos.');
+            let venc = new Date();
+            venc.setDate(venc.getDate() + 30);
+            try {
+                await db.collection('nemo_clientes').doc(user).set({ user, pass, vencimento: venc.toLocaleDateString('pt-BR') });
+                alert('Cliente cadastrado!');
+                atualizarListaClientes();
+            } catch(e) { alert('Erro.'); }
+        }
 
-    function reproduzirStream(url, nome) {
-        let video = document.getElementById('web-player');
-        document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
+        async function atualizarListaClientes() {
+            let div = document.getElementById('lista-clientes');
+            if (!db) return;
+            try {
+                let snapshot = await db.collection('nemo_clientes').get();
+                let html = '<ul>';
+                snapshot.forEach(doc => {
+                    let c = doc.data();
+                    html += `<li>${c.user} (Vence: ${c.vencimento}) <button onclick="removerCliente('${c.user}')" style="background:red; width:auto; padding:2px 5px;">X</button></li>`;
+                });
+                html += '</ul>';
+                div.innerHTML = html;
+            } catch(e) { div.innerHTML = 'Erro.'; }
+        }
 
-        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-        if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
+        async function removerCliente(user) {
+            if (!db) return;
+            await db.collection('nemo_clientes').doc(user).delete();
+            atualizarListaClientes();
+        }
 
-        if (url.includes('.m3u8') && Hls.isSupported()) {
-            hlsInstance = new Hls();
-            hlsInstance.loadSource(url);
-            hlsInstance.attachMedia(video);
-            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-                video.play().catch(e => console.log(e));
+        async function enviarSolicitacao(e) {
+            e.preventDefault();
+            let texto = document.getElementById('conteudo-pedido').value.trim();
+            let cliente = document.getElementById('painel-user-nome').innerText;
+            if (!texto || !db) return;
+            await db.collection('nemo_solicitacoes').add({ cliente, conteudo: texto, data: new Date().toLocaleDateString('pt-BR'), timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+            alert('Solicitação enviada!');
+            document.getElementById('conteudo-pedido').value = '';
+        }
+
+        async function atualizarListaSolicitacoes() {
+            let div = document.getElementById('lista-solicitacoes');
+            if (!db) return;
+            let snapshot = await db.collection('nemo_solicitacoes').orderBy('timestamp', 'desc').get();
+            let html = '<ul>';
+            snapshot.forEach(doc => {
+                let s = doc.data();
+                html += `<li><b>${s.cliente}</b>: ${s.conteudo} <button onclick="removerSolicitacao('${doc.id}')" style="background:var(--success); width:auto; padding:2px 5px;">Ok</button></li>`;
             });
-        } else if (mpegts.getFeatureList().mseLivePlayback) {
-            mpegtsPlayer = mpegts.createPlayer({ type: 'mpegts', url: url, isLive: true, cors: true });
-            mpegtsPlayer.attachMediaElement(video);
-            mpegtsPlayer.load();
-            mpegtsPlayer.play().catch(e => console.log(e));
-        } else {
-            video.src = url;
-            video.load();
-            video.play().catch(e => alert("Erro ao reproduzir fluxo diretamente."));
+            html += '</ul>';
+            div.innerHTML = html;
         }
-    }
 
-    function mudarAba(aba) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
-
-        if (aba === 'cliente') {
-            document.querySelectorAll('.tab-btn')[0].classList.add('active');
-            document.getElementById('view-cliente').classList.add('active');
-        } else {
-            document.querySelectorAll('.tab-btn')[1].classList.add('active');
-            document.getElementById('view-admin').classList.add('active');
+        async function removerSolicitacao(id) {
+            if (!db) return;
+            await db.collection('nemo_solicitacoes').doc(id).delete();
+            atualizarListaSolicitacoes();
         }
-    }
-</script>
+
+        function sairAdmin() {
+            document.getElementById('admin-painel').style.display = 'none';
+            document.getElementById('admin-login-box').style.display = 'block';
+        }
+
+        async function fazerLoginCliente(e) {
+            e.preventDefault();
+            let user = document.getElementById('cli-user').value.trim();
+            let pass = document.getElementById('cli-pass').value.trim();
+            if (!db) return alert('Banco não configurado.');
+            try {
+                let doc = await db.collection('nemo_clientes').doc(user).get();
+                if (doc.exists && doc.data().pass === pass) {
+                    let c = doc.data();
+                    document.getElementById('painel-user-nome').innerText = c.user;
+                    document.getElementById('painel-vencimento').innerText = c.vencimento;
+                    document.getElementById('cliente-login-box').style.display = 'none';
+                    document.getElementById('cliente-painel').style.display = 'block';
+                } else {
+                    alert('Dados inválidos.');
+                }
+            } catch(e) { alert('Erro.'); }
+        }
+
+        function sairCliente() {
+            document.getElementById('cliente-painel').style.display = 'none';
+            document.getElementById('cliente-login-box').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+               
