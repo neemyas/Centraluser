@@ -930,7 +930,25 @@
         document.getElementById('cliente-painel').style.display = 'none';
         document.getElementById('cliente-login-box').style.display = 'block';
     }
+async function carregarLista(urlServidor) {
+    try {
+        // Tenta baixar a lista automaticamente
+        const resposta = await fetch(urlServidor);
+        
+        if (!resposta.ok) {
+            throw new Error(`Erro HTTP: ${resposta.status}`);
+        }
+        
+        const dadosM3U = await resposta.text();
+        processarConteudoM3U(dadosM3U); // Sua função que lê os canais
+        
+    } catch (erro) {
+        console.warn("Falha no carregamento automático:", erro);
+        
+        // Exibe o alerta ou revela a textarea para colar o arquivo manualmente
+        exibirCaixaDeTextoManual();
+    }
+}
 </script>
-
 </body>
 </html>
