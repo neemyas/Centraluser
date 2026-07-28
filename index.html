@@ -932,9 +932,10 @@
     }
 async function carregarLista(urlServidor) {
     try {
-        // Tenta baixar a lista automaticamente
-        const resposta = await fetch(urlServidor);
+        // Usa um proxy CORS público para mascarar a requisição e evitar o bloqueio do navegador
+        const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(urlServidor);
         
+        const resposta = await fetch(proxyUrl);
         if (!resposta.ok) {
             throw new Error(`Erro HTTP: ${resposta.status}`);
         }
@@ -944,10 +945,11 @@ async function carregarLista(urlServidor) {
         
     } catch (erro) {
         console.warn("Falha no carregamento automático:", erro);
-        
-        // Exibe o alerta ou revela a textarea para colar o arquivo manualmente
+        // Mantém a opção de fallback se o proxy instabilizar
         exibirCaixaDeTextoManual();
     }
+}
+
 }
 </script>
 </body>
