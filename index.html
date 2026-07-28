@@ -516,13 +516,9 @@
     document.getElementById('painel-iptv').style.display = 'block';
     document.getElementById('canal-reproduzindo').innerText = '';
     voltarParaTipos();
-    
-    alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
 
-// (Código anterior da função)
     alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
 }
-
 
 // COLE AQUI EMBAIXO, ISOLADA:
 function exibirEstruturaNaTela(estrutura) {
@@ -546,6 +542,7 @@ function exibirEstruturaNaTela(estrutura) {
     divNova.innerHTML = html;
     container.appendChild(divNova);
     container.style.display = 'block';
+
 }
 
     function abrirTipoPrincipal(tipo) {
