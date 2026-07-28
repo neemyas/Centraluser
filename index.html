@@ -930,39 +930,37 @@
         document.getElementById('cliente-painel').style.display = 'none';
         document.getElementById('cliente-login-box').style.display = 'block';
     }
-async function carregarListaM3U() {
-    const inputElement = document.getElementById('m3u-input');
-    const urlServidor = inputElement ? inputElement.value.trim() : '';
+            async function carregarListaM3U() {
+            const inputElement = document.getElementById('m3u-input');
+            const urlServidor = inputElement ? inputElement.value.trim() : '';
 
-    if (!urlServidor) {
-        alert("Por favor, insira o link da sua lista M3U.");
-        return;
-    }
+            if (!urlServidor) {
+                alert("Por favor, insira o link da sua lista M3U.");
+                return;
+            }
 
-    try {
-        console.log("Carregando conteúdos via proxy dedicado...");
+            try {
+                console.log("Carregando conteúdos via proxy dedicado...");
 
-        // Já configurado com o seu link do Cloudflare:
-        
-    const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
-    const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
-    alert(proxyUrl); // Adiciona este alerta para vermos o link gerado
+                const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
+                const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
+
                 const resposta = await fetch(proxyUrl);
 
-        if (!resposta.ok) {
-            const detalheErro = await resposta.text();
-            throw new Error(`Servidor negou (Status ${resposta.status}): ${detalheErro}`);
+                if (!resposta.ok) {
+                    throw new Error(`Erro ao baixar: ${resposta.status}`);
+                }
+
+                const dadosM3U = await resposta.text();
+                processarConteudoM3U(dadosM3U); 
+                alert("Lista carregada com sucesso!");
+
+            } catch (erro) {
+                console.warn("Falha:", erro);
+                alert("Erro ao carregar a lista. Verifique o link.");
+            }
         }
 
-        const dadosM3U = await resposta.text();
-        processarConteudoM3U(dadosM3U); 
-        alert("Lista carregada com sucesso!");
-
-    } catch (erro) {
-        console.warn("Falha:", erro);
-        alert(erro.message); // Mostra o erro exato na tela
-    }
-
-</script>
-</body>
-</html>
+    </script> <!-- 📍 O código da função fica logo antes desta linha -->
+    </body>
+    </html>
