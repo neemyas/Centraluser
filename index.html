@@ -3,476 +3,902 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nemo IPTV - Central</title>
-    <!-- CDNs de Players e Firebase -->
+    <title>Nemo IPTV</title>
+    <!-- Bibliotecas para reprodução de HLS e MPEG-TS no navegador -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
-        :root { --primary: #00d2ff; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --success: #22c55e; }
-        body { background-color: var(--bg); color: var(--text); font-family: Arial, sans-serif; margin: 0; padding: 10px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { text-align: center; margin-bottom: 20px; }
-        .card { background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        input, button, textarea { width: 100%; padding: 10px; margin-top: 8px; margin-bottom: 8px; box-sizing: border-box; border-radius: 5px; border: 1px solid #475569; background: #0f172a; color: white; }
-        button { background: var(--primary); color: #0f172a; font-weight: bold; cursor: pointer; border: none; }
-        .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
-        .tab-btn { flex: 1; padding: 10px; background: #334155; border: none; color: white; border-radius: 5px; cursor: pointer; }
-        .tab-btn.active { background: var(--primary); color: #0f172a; font-weight: bold; }
+        :root {
+            --primary: #00d2ff;
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --text: #ffffff;
+            --success: #28a745;
+            --danger: #dc3545;
+        }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text);
+            text-align: center;
+        }
+        header {
+            padding: 20px;
+            background-color: #000;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+
+        h1 { margin: 0; font-size: 24px; color: var(--primary); }
+        
+        .container { padding: 20px; max-width: 600px; margin: auto; }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            margin: 8px 0;
+            background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            border: none;
+            width: 100%;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .whatsapp-btn { background: #25D366; }
+        .card-btn { background: linear-gradient(90deg, #28a745 0%, #20c997 100%); }
+        .admin-btn { background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); color: #000; }
+        
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #333;
+            background-color: #2a2a2a;
+            color: white;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        .tab-menu {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: #2a2a2a;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: #000;
+        }
+
         .section-view { display: none; }
         .section-view.active { display: block; }
-        video { width: 100%; max-height: 300px; background: black; border-radius: 5px; }
-        .folder-card { background: #334155; padding: 10px; margin-bottom: 8px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .item-lista { background: #1e293b; border: 1px solid #334155; padding: 10px; margin-bottom: 6px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+
+        .info-box {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid var(--primary);
+            text-align: left;
+        }
+
+        video {
+            width: 100%;
+            max-height: 280px;
+            background: #000;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .playlist-container {
+            text-align: left;
+            margin-top: 15px;
+        }
+
+        .folder-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .folder-card {
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            border: 1px solid #333;
+            transition: 0.2s;
+        }
+        .folder-card:hover { border-color: var(--primary); background: #2a2a2a; }
+        .folder-card h4 { margin: 0; color: var(--primary); font-size: 14px; word-break: break-word; }
+
+        .item-lista {
+            background: #252525;
+            padding: 10px;
+            margin: 6px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            border: 1px solid #333;
+        }
+        .item-lista:hover { background: #2f2f2f; border-color: var(--primary); }
+
+        .link-recuperar {
+            display: block;
+            margin-top: 12px;
+            color: var(--primary);
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: center;
+        }
+        .link-recuperar:hover { color: #3a7bd5; }
+
+        ul { text-align: left; padding-left: 20px; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h2 style="color:var(--primary); margin:5px 0;">Nemo IPTV</h2>
-        </div>
+<body onload="inicializarDados()">
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="mudarAba('cliente')">Área do Cliente</button>
-            <button class="tab-btn" onclick="mudarAba('admin')">Painel Admin</button>
-        </div>
+<header>
+    <img src="logo.jpg" alt="Logo Nemo IPTV" class="logo">
+    <h1>Nemo IPTV</h1>
+</header>
 
-        <!-- ABA CLIENTE -->
-        <div id="view-cliente" class="section-view active">
-            <div id="cliente-login-box" class="card">
-                <h3>Login do Cliente</h3>
-                <form onsubmit="fazerLoginCliente(event)">
-                    <input type="text" id="cli-user" placeholder="Usuário" required>
-                    <input type="password" id="cli-pass" placeholder="Senha" required>
-                    <button type="submit">Entrar</button>
-                </form>
+<div class="container">
+    <!-- Seção do Player Web M3U Inteligente -->
+    <div class="card">
+        <h2>Player Web</h2>
+        <p>Cole o link da sua lista M3U abaixo:</p>
+        <textarea id="m3u-input" rows="3" placeholder="http://exemplo.com/get.php?username=..."></textarea>
+        <button onclick="carregarListaM3U()" class="btn">Carregar Lista</button>
+
+        <!-- Área de Navegação por Pastas e Subpastas -->
+        <div id="painel-iptv" class="playlist-container" style="display: none;">
+            <div id="breadcrumb" style="margin-bottom: 10px; font-size: 13px; color: #aaa;">Início</div>
+            
+            <!-- Video Player Ativo -->
+            <video id="web-player" controls autoplay></video>
+            <h4 id="canal-reproduzindo" style="margin: 8px 0; color: var(--success); font-size: 14px;"></h4>
+
+            <input type="text" id="filtro-busca" placeholder="Pesquisar..." onkeyup="filtrarItens()" style="margin: 10px 0; display:none;">
+
+            <!-- Nível 1: Tipos Principais (Canais, Filmes, Séries) -->
+            <div id="view-tipos" class="folder-grid">
+                <div class="folder-card" onclick="abrirTipoPrincipal('Canais')">
+                    <h4>📺 Canais ao Vivo</h4>
+                </div>
+                <div class="folder-card" onclick="abrirTipoPrincipal('Filmes')">
+                    <h4>🎬 Filmes</h4>
+                </div>
+                <div class="folder-card" onclick="abrirTipoPrincipal('Series')">
+                    <h4>🍿 Séries</h4>
+                </div>
             </div>
 
-            <div id="cliente-painel" class="card" style="display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3>Bem-vindo, <span id="painel-user-nome"></span></h3>
-                    <button onclick="sairCliente()" style="width:auto; padding:5px 10px; background:red; color:white;">Sair</button>
-                </div>
-                <p style="font-size:13px; color:#aaa;">Vencimento: <span id="painel-vencimento" style="color:var(--success);"></span></p>
-                
-                <hr style="border-color:#334155;">
-
-                <h4>Carregar Lista M3U</h4>
-                <textarea id="m3u-input" rows="3" placeholder="Cole o Link da lista M3U (com proxy automático) ou o conteúdo de texto..."></textarea>
-                <button onclick="carregarListaM3U()">Processar Lista</button>
-
-                <div id="painel-iptv" style="display:none; margin-top:15px;">
-                    <p id="breadcrumb" style="font-size:12px; color:var(--primary); font-weight:bold;">Início</p>
-                    <input type="text" id="filtro-busca" placeholder="Pesquisar item..." onkeyup="filtrarItens()" style="display:none;">
-                    
-                    <div id="view-tipos" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:10px;">
-                        <div class="folder-card" onclick="abrirTipoPrincipal('Canais')" style="flex-direction:column; text-align:center;">📺<br>Canais</div>
-                        <div class="folder-card" onclick="abrirTipoPrincipal('Filmes')" style="flex-direction:column; text-align:center;">🎬<br>Filmes</div>
-                        <div class="folder-card" onclick="abrirTipoPrincipal('Series')" style="flex-direction:column; text-align:center;">🍿<br>Séries</div>
-                    </div>
-
-                    <div id="view-subpastas" style="display:none; margin-top:10px;">
-                        <button onclick="voltarParaTipos()" style="background:#475569; width:auto; padding:5px 10px; margin-bottom:10px;">⬅ Voltar</button>
-                        <div id="lista-subpastas"></div>
-                    </div>
-
-                    <div id="view-itens" style="display:none; margin-top:10px;">
-                        <button onclick="voltarParaSubpastas()" style="background:#475569; width:auto; padding:5px 10px; margin-bottom:10px;">⬅ Voltar aos Grupos</button>
-                        <div id="lista-conteudo" style="max-height:250px; overflow-y:auto;"></div>
-                    </div>
-
-                    <div style="margin-top:15px;">
-                        <p id="canal-reproduzindo" style="font-size:13px; color:var(--success); font-weight:bold;"></p>
-                        <video id="web-player" controls playsinline></video>
-                    </div>
-                </div>
-
-                <hr style="border-color:#334155; margin:15px 0;">
-
-                <h4>Pedir Conteúdo / Filme</h4>
-                <form onsubmit="enviarSolicitacao(event)">
-                    <input type="text" id="conteudo-pedido" placeholder="Ex: Filme X ou Canal Y" required>
-                    <button type="submit">Enviar Solicitação</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- ABA ADMIN -->
-        <div id="view-admin" class="section-view">
-            <div id="admin-login-box" class="card">
-                <h3>Login Administrador</h3>
-                <input type="text" id="admin-user-input" placeholder="Usuário Admin">
-                <input type="password" id="admin-pass-input" placeholder="Senha Admin">
-                <button onclick="logarAdmin()">Entrar no Painel</button>
+            <!-- Nível 2: Sub-pastas (Grupos da Lista) -->
+            <div id="view-subpastas" style="display: none;">
+                <button onclick="voltarParaTipos()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Categorias</button>
+                <div id="lista-subpastas" class="folder-grid"></div>
             </div>
 
-            <div id="admin-painel" class="card" style="display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3>Painel de Controle</h3>
-                    <button onclick="sairAdmin()" style="width:auto; padding:5px 10px; background:red; color:white;">Sair</button>
-                </div>
-
-                <h4 style="margin-top:15px;">Cadastrar Novo Cliente</h4>
-                <input type="text" id="novo-user" placeholder="Usuário do Cliente">
-                <input type="password" id="novo-pass" placeholder="Senha do Cliente">
-                <button onclick="cadastrarCliente()">Salvar Cliente (30 dias)</button>
-
-                <h4 style="margin-top:15px;">Clientes Cadastrados</h4>
-                <div id="lista-clientes" style="max-height:150px; overflow-y:auto; background:#0f172a; padding:8px; border-radius:5px;"></div>
-
-                <h4 style="margin-top:15px;">Solicitações dos Clientes</h4>
-                <div id="lista-solicitacoes" style="max-height:150px; overflow-y:auto; background:#0f172a; padding:8px; border-radius:5px;"></div>
-
-                <h4 style="margin-top:15px;">Criar Novo Admin</h4>
-                <input type="text" id="novo-admin-user" placeholder="Novo Admin">
-                <input type="password" id="novo-admin-pass" placeholder="Senha do Admin">
-                <button onclick="cadastrarAdmin()">Cadastrar Admin</button>
+            <!-- Nível 3: Lista de Canais/Filmes da Subpasta -->
+            <div id="view-itens" style="display: none;">
+                <button onclick="voltarParaSubpastas()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Subpastas</button>
+                <div id="lista-conteudo" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
         </div>
     </div>
 
-    <!-- SCRIPT DE FUNCIONAMENTO -->
-    <script>
-        const firebaseConfig = {
-            apiKey: "SUA_API_KEY_AQUI",
-            authDomain: "SEU_PROJETO.firebaseapp.com",
-            projectId: "SEU_PROJETO_ID",
-            storageBucket: "SEU_PROJETO.appspot.com",
-            messagingSenderId: "SEU_SENDER_ID",
-            appId: "SEU_APP_ID"
-        };
+    <!-- Seção de Download -->
+    <div class="card">
+        <h2>Nosso Aplicativo</h2>
+        <p>A melhor experiência de streaming na palma da sua mão.</p>
+        <a href="https://www.mediafire.com/file/svgbdbnebbrar2v/app-debug.apk/file" target="_blank" class="btn">Baixar App (MediaFire)</a>
+    </div>
 
-        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
-            firebase.initializeApp(firebaseConfig);
+    <!-- Seção de Planos e Pagamento -->
+    <div class="card">
+        <h2>Ainda não é nosso cliente?</h2>
+        <p>ASSINE AGORA MESMO</p>
+        <h4 style="margin: 15px 0 10px 0; color: var(--primary);">Escolha seu plano agora:</h4>
+        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%201%20m%C3%Aas%20por%20R%24%2035%2C00" target="_blank" class="btn">1 Mês – R$ 35,00</a>
+        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%203%20meses%20por%20R%24%2090%2C00" target="_blank" class="btn">3 Meses – R$ 90,00</a>
+        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%206%20meses%20por%20R%24%20165%2C00" target="_blank" class="btn">6 Meses – R$ 165,00</a>
+        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%201%20ano%20por%20R%24%20300%2C00" target="_blank" class="btn">1 Ano – R$ 300,00</a>
+    </div>
+
+    <!-- Central de Acesso (Cliente / Administrador) -->
+    <div class="card">
+        <h2>Portal de Acesso</h2>
+        
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="mudarAba('cliente')">Sou Cliente</button>
+            <button class="tab-btn" onclick="mudarAba('admin')">Administrador</button>
+        </div>
+
+        <!-- ABA CLIENTE -->
+        <div id="view-cliente" class="section-view active">
+            <div id="cliente-login-box">
+                <p>Entre com seu usuário e senha criados pelo suporte.</p>
+                <form onsubmit="fazerLoginCliente(event)">
+                    <input type="text" id="cli-user" placeholder="Usuário" required>
+                    <input type="password" id="cli-pass" placeholder="Senha" required>
+                    <button type="submit" class="btn">Entrar na Conta</button>
+                </form>
+            </div>
+
+            <div id="cliente-painel" style="display: none;">
+                <h3 style="color: var(--primary);">Olá, <span id="painel-user-nome"></span>!</h3>
+                <div class="info-box">
+                    <p>Status: <strong style="color: var(--success);">Ativo</strong></p>
+                    <p>Vencimento da Mensalidade:</p>
+                    <h3 id="painel-vencimento" style="margin: 5px 0; color: #ffc107;">--/--/----</h3>
+                </div>
+
+                <div class="info-box" style="border-left-color: var(--success);">
+                    <p style="margin: 0 0 8px 0; font-weight: bold;">Histórico de Meses Pagos:</p>
+                    <div id="cliente-historico-pagamentos" style="max-height: 120px; overflow-y: auto;">
+                        <!-- Preenchido via script -->
+                    </div>
+                </div>
+
+                <p>Cadastre seu cartão para débito automático mensal:</p>
+                <a href="https://mpago.la/1VKgbdM" target="_blank" class="btn card-btn">Cadastrar Cartão (Automático)</a>
+
+                <hr style="border-color: #333; margin: 20px 0;">
+                
+                <h3>Pedir Filme / Série / Canal</h3>
+                <p style="font-size: 13px; color: #aaa;">Faltou algo na grade? Peça aqui para a administração:</p>
+                <form onsubmit="enviarSolicitacao(event)">
+                    <textarea id="conteudo-pedido" rows="2" placeholder="Ex: Gostaria que adicionassem o filme X ou o canal Y..." required></textarea>
+                    <button type="submit" class="btn" style="background: linear-gradient(90deg, #6610f2 0%, #6f42c1 100%);">Enviar Solicitação</button>
+                </form>
+
+                <button onclick="sairCliente()" class="btn" style="background: var(--danger); margin-top: 15px;">Sair</button>
+            </div>
+        </div>
+
+        <!-- ABA ADMINISTRADOR -->
+        <div id="view-admin" class="section-view">
+            <!-- Tela de Login Admin -->
+            <div id="admin-login-box">
+                <p>Acesse com seu usuário e senha de Administrador</p>
+                <input type="text" id="admin-user-input" placeholder="Usuário Admin" required>
+                <input type="password" id="admin-pass-input" placeholder="Senha Admin" required>
+                <button onclick="logarAdmin()" class="btn admin-btn">Entrar como Admin</button>
+                <button onclick="mostrarRecuperacaoAdmin()" class="link-recuperar">Esqueci minha senha</button>
+            </div>
+
+            <!-- Tela de Recuperação de Senha Admin -->
+            <div id="admin-recuperar-box" style="display: none;">
+                <p>Informe o e-mail cadastrado para receber instruções de recuperação:</p>
+                <input type="email" id="admin-email-recuperar" placeholder="Seu e-mail cadastrado" required>
+                <button onclick="enviarRecuperacaoAdmin()" class="btn admin-btn">Enviar Instruções por E-mail</button>
+                <button onclick="voltarLoginAdmin()" class="link-recuperar">Voltar ao Login</button>
+            </div>
+
+            <!-- Painel do Admin -->
+            <div id="admin-painel" style="display: none;">
+                <h3 style="color: #ffc107;">Painel de Controle do Admin</h3>
+                
+                <!-- Bloco de Alterar Própria Senha -->
+                <div style="background: #242424; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
+                    <p style="margin-top:0; font-weight:bold;">Alterar Minha Senha de Admin</p>
+                    <input type="password" id="admin-senha-atual" placeholder="Senha Atual">
+                    <input type="password" id="admin-senha-nova" placeholder="Nova Senha">
+                    <button onclick="alterarMinhaSenha()" class="btn" style="background: #6c757d;">Atualizar Minha Senha</button>
+                </div>
+
+                <div style="background: #242424; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="margin-top:0; font-weight:bold;">Cadastrar Novo Cliente (Validade: 30 dias)</p>
+                    <input type="text" id="novo-user" placeholder="Usuário do Cliente">
+                    <input type="password" id="novo-pass" placeholder="Senha do Cliente">
+                    <button onclick="cadastrarCliente()" class="btn admin-btn">Criar Acesso do Cliente</button>
+                </div>
+
+                <div style="background: #242424; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="margin-top:0; font-weight:bold;">Cadastrar Novo Administrador</p>
+                    <input type="text" id="novo-admin-user" placeholder="Novo Usuário Admin">
+                    <input type="password" id="novo-admin-pass" placeholder="Nova Senha Admin">
+                    <input type="email" id="novo-admin-email" placeholder="E-mail do Admin">
+                    <button onclick="cadastrarAdmin()" class="btn" style="background: #17a2b8;">Criar Novo Admin</button>
+                </div>
+
+                <div style="background: #242424; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="margin-top:0; font-weight:bold;">Administradores Cadastrados</p>
+                    <div id="lista-admins" style="max-height: 150px; overflow-y: auto;"></div>
+                </div>
+
+                <hr style="border-color: #333; margin: 20px 0;">
+                
+                <h4 style="color: var(--primary);">Solicitações de Conteúdo dos Clientes:</h4>
+                <div id="lista-solicitacoes" style="max-height: 180px; overflow-y: auto; background: #1a1a1a; padding: 10px; border-radius: 5px; margin-bottom: 15px;"></div>
+
+                <hr style="border-color: #333; margin: 20px 0;">
+                
+                <h4>Clientes Cadastrados:</h4>
+                <div id="lista-clientes" style="max-height: 150px; overflow-y: auto;"></div>
+
+                <button onclick="sairAdmin()" class="btn" style="background: var(--danger); margin-top: 15px;">Sair do Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Portal de Contato -->
+    <div class="card">
+        <h2>Precisa de Ajuda?</h2>
+        <p>Fale diretamente com nosso suporte.</p>
+        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20preciso%20de%20suporte%20na%20Nemo%20IPTV!" class="btn whatsapp-btn">Contato via WhatsApp</a>
+    </div>
+</div>
+
+<script>
+    let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
+    let tipoAtual = '';
+    let subpastaAtual = '';
+    let hlsInstance = null;
+    let mpegtsPlayer = null;
+    let clienteLogadoGlobal = null;
+    let adminLogadoAtual = null;
+
+    function inicializarDados() {
+        if (!localStorage.getItem('nemo_admins')) {
+            localStorage.setItem('nemo_admins', JSON.stringify([{ user: 'admin', pass: 'admin123', email: 'admin@nemo.com', ativo: true }]));
         }
-        const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+        if (!localStorage.getItem('nemo_clientes')) {
+            localStorage.setItem('nemo_clientes', JSON.stringify([]));
+        }
+        if (!localStorage.getItem('nemo_solicitacoes')) {
+            localStorage.setItem('nemo_solicitacoes', JSON.stringify([]));
+        }
+    }
 
-        let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
-        let tipoAtual = '';
-        let subpastaAtual = '';
-        let hlsInstance = null;
-        let mpegtsPlayer = null;
+    async function carregarListaM3U() {
+        let inputTexto = document.getElementById('m3u-input').value.trim();
+        if (!inputTexto) {
+            alert('Por favor, insira o link da lista M3U.');
+            return;
+        }
 
-        async function carregarListaM3U() {
-            let inputTexto = document.getElementById('m3u-input').value.trim();
-            if (!inputTexto) {
-                alert('Por favor, insira o link ou conteúdo da lista M3U.');
+        let textoM3U = "";
+        if (inputTexto.startsWith('http://') || inputTexto.startsWith('https://')) {
+            try {
+                document.getElementById('canal-reproduzindo').innerText = 'Baixando lista do servidor...';
+                let response = await fetch(inputTexto);
+                if (!response.ok) throw new Error('Erro na resposta');
+                textoM3U = await response.text();
+            } catch (error) {
+                alert('Erro CORS ao baixar pelo link. Cole o conteúdo do arquivo M3U diretamente.');
+                document.getElementById('canal-reproduzindo').innerText = '';
                 return;
             }
-
-            let textoM3U = "";
-            if (inputTexto.startsWith('http://') || inputTexto.startsWith('https://')) {
-                try {
-                    document.getElementById('canal-reproduzindo').innerText = 'Baixando lista do servidor...';
-                    
-                    let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(inputTexto);
-                    let response = await fetch(proxyUrl);
-                    
-                    if (!response.ok) throw new Error('Erro na resposta do servidor');
-                    textoM3U = await response.text();
-                } catch (error) {
-                    alert('Erro ao baixar pelo link. Tente colar o conteúdo do arquivo M3U diretamente.');
-                    document.getElementById('canal-reproduzindo').innerText = '';
-                    return;
-                }
-            } else {
-                textoM3U = inputTexto;
-            }
-
-            processarTextoM3U(textoM3U);
+        } else {
+            textoM3U = inputTexto;
         }
 
-        function processarTextoM3U(textoM3U) {
-            let linhas = textoM3U.split('\n');
-            let estrutura = { Canais: {}, Filmes: {}, Series: {} };
-            let nomeAtual = "";
-            let groupAtual = "Geral";
+        processarTextoM3U(textoM3U);
+    }
 
-            for (let i = 0; i < linhas.length; i++) {
-                let linha = linhas[i].trim();
-                if (linha.startsWith('#EXTINF:')) {
-                    let partesVirgula = linha.split(',');
-                    nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
+    function processarTextoM3U(textoM3U) {
+        let linhas = textoM3U.split('\n');
+        let estrutura = { Canais: {}, Filmes: {}, Series: {} };
 
-                    if (linha.includes('group-title="')) {
-                        let match = linha.match(/group-title="([^"]+)"/);
-                        if (match && match[1]) groupAtual = match[1].trim();
-                    }
-                } else if (linha && !linha.startsWith('#')) {
-                    let urlStream = linha;
-                    let item = { nome: nomeAtual || "Sem Nome", url: urlStream };
+        let nomeAtual = "";
+        let groupAtual = "Geral";
 
-                    let buscaTipo = (groupAtual + " " + nomeAtual).toLowerCase();
-                    let destino = 'Canais';
+        for (let i = 0; i < linhas.length; i++) {
+            let linha = linhas[i].trim();
+            if (linha.startsWith('#EXTINF:')) {
+                let partesVirgula = linha.split(',');
+                nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
 
-                    if (buscaTipo.includes('filme') || buscaTipo.includes('movie') || buscaTipo.includes('vod') || buscaTipo.includes('cinema') || buscaTipo.includes('lançamento')) {
-                        destino = 'Filmes';
-                    } else if (buscaTipo.includes('serie') || buscaTipo.includes('série') || buscaTipo.includes('temporada') || buscaTipo.includes('episodio') || buscaTipo.includes('ep.')) {
-                        destino = 'Series';
-                    }
-
-                    if (!estrutura[destino][groupAtual]) {
-                        estrutura[destino][groupAtual] = [];
-                    }
-                    estrutura[destino][groupAtual].push(item);
+                if (linha.includes('group-title="')) {
+                    let match = linha.match(/group-title="([^"]+)"/);
+                    if (match && match[1]) groupAtual = match[1].trim();
                 }
+            } else if (linha && !linha.startsWith('#')) {
+                let urlStream = linha;
+                let item = { nome: nomeAtual || "Sem Nome", url: urlStream };
+
+                let buscaTipo = (groupAtual + " " + nomeAtual).toLowerCase();
+                let destino = 'Canais';
+
+                if (buscaTipo.includes('filme') || buscaTipo.includes('movie') || buscaTipo.includes('vod') || buscaTipo.includes('cinema') || buscaTipo.includes('lançamento')) {
+                    destino = 'Filmes';
+                } else if (buscaTipo.includes('serie') || buscaTipo.includes('série') || buscaTipo.includes('temporada') || buscaTipo.includes('episodio') || buscaTipo.includes('ep.')) {
+                    destino = 'Series';
+                }
+
+                if (!estrutura[destino][groupAtual]) {
+                    estrutura[destino][groupAtual] = [];
+                }
+                estrutura[destino][groupAtual].push(item);
             }
-
-            estruturaGlobal = estrutura;
-            let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
-            let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
-            let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
-
-            document.getElementById('painel-iptv').style.display = 'block';
-            document.getElementById('canal-reproduzindo').innerText = '';
-            voltarParaTipos();
-            alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
         }
 
-        function abrirTipoPrincipal(tipo) {
-            tipoAtual = tipo;
-            document.getElementById('view-tipos').style.display = 'none';
-            document.getElementById('view-subpastas').style.display = 'block';
-            document.getElementById('breadcrumb').innerText = `Início > ${tipo}`;
-            
-            let subpastas = estruturaGlobal[tipo] || {};
-            let divSub = document.getElementById('lista-subpastas');
-            let html = '';
-            let grupos = Object.keys(subpastas);
+        estruturaGlobal = estrutura;
 
-            if (grupos.length === 0) {
-                divSub.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhuma subpasta encontrada.</p>';
-                return;
-            }
+        let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
+        let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
+        let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
 
-            grupos.forEach(grupo => {
-                let qtd = subpastas[grupo].length;
-                let grupoSeguro = grupo.replace(/'/g, "\\'");
-                html += `<div class="folder-card" onclick="abrirSubpasta('${grupoSeguro}')">
-                    <h4>📁 ${grupo}</h4>
-                    <span style="font-size:11px; color:#aaa;">(${qtd} itens)</span>
-                </div>`;
+        document.getElementById('painel-iptv').style.display = 'block';
+        document.getElementById('canal-reproduzindo').innerText = '';
+        voltarParaTipos();
+        alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
+    }
+
+    function abrirTipoPrincipal(tipo) {
+        tipoAtual = tipo;
+        document.getElementById('view-tipos').style.display = 'none';
+        document.getElementById('view-subpastas').style.display = 'block';
+        document.getElementById('breadcrumb').innerText = `Início > ${tipo}`;
+        
+        let subpastas = estruturaGlobal[tipo] || {};
+        let divSub = document.getElementById('lista-subpastas');
+        let html = '';
+
+        let grupos = Object.keys(subpastas);
+        if (grupos.length === 0) {
+            divSub.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhuma subpasta encontrada.</p>';
+            return;
+        }
+
+        grupos.forEach(grupo => {
+            let qtd = subpastas[grupo].length;
+            let grupoSeguro = grupo.replace(/'/g, "\\'");
+            html += `<div class="folder-card" onclick="abrirSubpasta('${grupoSeguro}')">
+                <h4>📁 ${grupo}</h4>
+                <span style="font-size:11px; color:#aaa;">(${qtd} itens)</span>
+            </div>`;
+        });
+        divSub.innerHTML = html;
+    }
+
+    function abrirSubpasta(grupo) {
+        subpastaAtual = grupo;
+        document.getElementById('view-subpastas').style.display = 'none';
+        document.getElementById('view-itens').style.display = 'block';
+        document.getElementById('filtro-busca').style.display = 'block';
+        document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual} > ${grupo}`;
+        document.getElementById('filtro-busca').value = '';
+        renderizarItens(estruturaGlobal[tipoAtual][grupo] || []);
+    }
+
+    function voltarParaTipos() {
+        tipoAtual = '';
+        subpastaAtual = '';
+        document.getElementById('view-subpastas').style.display = 'none';
+        document.getElementById('view-itens').style.display = 'none';
+        document.getElementById('view-tipos').style.display = 'grid';
+        document.getElementById('filtro-busca').style.display = 'none';
+        document.getElementById('breadcrumb').innerText = 'Início';
+        document.getElementById('filtro-busca').value = '';
+    }
+
+    function voltarParaSubpastas() {
+        subpastaAtual = '';
+        document.getElementById('view-itens').style.display = 'none';
+        document.getElementById('view-subpastas').style.display = 'block';
+        document.getElementById('filtro-busca').style.display = 'none';
+        document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual}`;
+        document.getElementById('filtro-busca').value = '';
+    }
+
+    function renderizarItens(itens) {
+        let divLista = document.getElementById('lista-conteudo');
+        if (itens.length === 0) {
+            divLista.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhum item encontrado.</p>';
+            return;
+        }
+
+        let html = '';
+        itens.forEach((item) => {
+            let nomeSeguro = item.nome.replace(/'/g, "\\'");
+            let urlSegura = item.url.replace(/'/g, "\\'");
+            html += `<div class="item-lista" onclick="reproduzirStream('${urlSegura}', '${nomeSeguro}')">
+                <span>▶ ${item.nome}</span>
+                <span style="font-size:11px; color:var(--primary);">Assistir</span>
+            </div>`;
+        });
+        divLista.innerHTML = html;
+    }
+
+    function filtrarItens() {
+        let termo = document.getElementById('filtro-busca').value.toLowerCase();
+        let itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual] || [];
+        let filtrados = itensOriginais.filter(i => i.nome.toLowerCase().includes(termo));
+        renderizarItens(filtrados);
+    }
+
+    function reproduzirStream(url, nome) {
+        let video = document.getElementById('web-player');
+        document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
+
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        if (mpegtsPlayer) {
+            mpegtsPlayer.destroy();
+            mpegtsPlayer = null;
+        }
+
+        if (url.includes('.m3u8') && Hls.isSupported()) {
+            hlsInstance = new Hls();
+            hlsInstance.loadSource(url);
+            hlsInstance.attachMedia(video);
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play().catch(e => console.log(e));
             });
-            divSub.innerHTML = html;
+        } else if (mpegts.getFeatureList().mseLivePlayback) {
+            mpegtsPlayer = mpegts.createPlayer({
+                type: 'mpegts',
+                url: url,
+                isLive: true,
+                cors: true
+            });
+            mpegtsPlayer.attachMediaElement(video);
+            mpegtsPlayer.load();
+            mpegtsPlayer.play().catch(e => {
+                console.log(e);
+                alert("Erro ao iniciar a reprodução. Verifique a conexão com o servidor IPTV.");
+            });
+        } else {
+            video.src = url;
+            video.load();
+            video.play().catch(e => {
+                console.log(e);
+                alert("Seu navegador não suporta a reprodução deste formato diretamente.");
+            });
         }
+    }
 
-        function abrirSubpasta(grupo) {
-            subpastaAtual = grupo;
-            document.getElementById('view-subpastas').style.display = 'none';
-            document.getElementById('view-itens').style.display = 'block';
-            document.getElementById('filtro-busca').style.display = 'block';
-            document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual} > ${grupo}`;
-            document.getElementById('filtro-busca').value = '';
-            renderizarItens(estruturaGlobal[tipoAtual][grupo] || []);
+    function mudarAba(aba) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
+
+        if (aba === 'cliente') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('view-cliente').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('view-admin').classList.add('active');
         }
+    }
 
-        function voltarParaTipos() {
-            tipoAtual = '';
-            subpastaAtual = '';
-            document.getElementById('view-subpastas').style.display = 'none';
-            document.getElementById('view-itens').style.display = 'none';
-            document.getElementById('view-tipos').style.display = 'grid';
-            document.getElementById('filtro-busca').style.display = 'none';
-            document.getElementById('breadcrumb').innerText = 'Início';
-            document.getElementById('filtro-busca').value = '';
-        }
+    function logarAdmin() {
+        let user = document.getElementById('admin-user-input').value.trim();
+        let pass = document.getElementById('admin-pass-input').value.trim();
+        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        let adminEncontrado = admins.find(a => a.user === user && a.pass === pass);
 
-        function voltarParaSubpastas() {
-            subpastaAtual = '';
-            document.getElementById('view-itens').style.display = 'none';
-            document.getElementById('view-subpastas').style.display = 'block';
-            document.getElementById('filtro-busca').style.display = 'none';
-            document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual}`;
-            document.getElementById('filtro-busca').value = '';
-        }
-
-        function renderizarItens(itens) {
-            let divLista = document.getElementById('lista-conteudo');
-            if (itens.length === 0) {
-                divLista.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhum item encontrado.</p>';
+        if (adminEncontrado) {
+            if (adminEncontrado.ativo === false) {
+                alert('Este acesso de Administrador está bloqueado temporariamente.');
                 return;
             }
-
-            let html = '';
-            itens.forEach((item) => {
-                let nomeSeguro = item.nome.replace(/'/g, "\\'");
-                let urlSegura = item.url.replace(/'/g, "\\'");
-                html += `<div class="item-lista" onclick="reproduzirStream('${urlSegura}', '${nomeSeguro}')">
-                    <span>▶ ${item.nome}</span>
-                    <span style="font-size:11px; color:var(--primary);">Assistir</span>
-                </div>`;
-            });
-            divLista.innerHTML = html;
-        }
-
-        function filtrarItens() {
-            let termo = document.getElementById('filtro-busca').value.toLowerCase();
-            let itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual] || [];
-            let filtrados = itensOriginais.filter(i => i.nome.toLowerCase().includes(termo));
-            renderizarItens(filtrados);
-        }
-
-        function reproduzirStream(url, nome) {
-            let video = document.getElementById('web-player');
-            document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
-
-            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-            if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
-
-            if (url.includes('.m3u8') && Hls.isSupported()) {
-                hlsInstance = new Hls();
-                hlsInstance.loadSource(url);
-                hlsInstance.attachMedia(video);
-                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play().catch(e => console.log(e));
-                });
-            } else if (mpegts.getFeatureList().mseLivePlayback) {
-                mpegtsPlayer = mpegts.createPlayer({ type: 'mpegts', url: url, isLive: true, cors: true });
-                mpegtsPlayer.attachMediaElement(video);
-                mpegtsPlayer.load();
-                mpegtsPlayer.play().catch(e => console.log(e));
-            } else {
-                video.src = url;
-                video.load();
-                video.play().catch(e => alert("Erro ao reproduzir fluxo diretamente."));
-            }
-        }
-
-        function mudarAba(aba) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
-
-            if (aba === 'cliente') {
-                document.querySelectorAll('.tab-btn')[0].classList.add('active');
-                document.getElementById('view-cliente').classList.add('active');
-            } else {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
-                document.getElementById('view-admin').classList.add('active');
-            }
-        }
-
-        async function logarAdmin() {
-            let user = document.getElementById('admin-user-input').value.trim();
-            let pass = document.getElementById('admin-pass-input').value.trim();
-            if (!db) return alert('Firebase não configurado.');
-            try {
-                let doc = await db.collection('nemo_admins').doc(user).get();
-                if (doc.exists && doc.data().pass === pass) {
-                    document.getElementById('admin-login-box').style.display = 'none';
-                    document.getElementById('admin-painel').style.display = 'block';
-                    atualizarListaClientes();
-                    atualizarListaSolicitacoes();
-                } else {
-                    alert('Usuário ou senha incorretos!');
-                }
-            } catch (e) {
-                alert('Erro ao conectar.');
-            }
-        }
-
-        async function cadastrarAdmin() {
-            let user = document.getElementById('novo-admin-user').value.trim();
-            let pass = document.getElementById('novo-admin-pass').value.trim();
-            if (!user || !pass || !db) return alert('Preencha os campos.');
-            try {
-                await db.collection('nemo_admins').doc(user).set({ user, pass });
-                alert('Admin cadastrado!');
-            } catch(e) { alert('Erro.'); }
-        }
-
-        async function cadastrarCliente() {
-            let user = document.getElementById('novo-user').value.trim();
-            let pass = document.getElementById('novo-pass').value.trim();
-            if (!user || !pass || !db) return alert('Preencha os campos.');
-            let venc = new Date();
-            venc.setDate(venc.getDate() + 30);
-            try {
-                await db.collection('nemo_clientes').doc(user).set({ user, pass, vencimento: venc.toLocaleDateString('pt-BR') });
-                alert('Cliente cadastrado!');
-                atualizarListaClientes();
-            } catch(e) { alert('Erro.'); }
-        }
-
-        async function atualizarListaClientes() {
-            let div = document.getElementById('lista-clientes');
-            if (!db) return;
-            try {
-                let snapshot = await db.collection('nemo_clientes').get();
-                let html = '<ul>';
-                snapshot.forEach(doc => {
-                    let c = doc.data();
-                    html += `<li>${c.user} (Vence: ${c.vencimento}) <button onclick="removerCliente('${c.user}')" style="background:red; width:auto; padding:2px 5px;">X</button></li>`;
-                });
-                html += '</ul>';
-                div.innerHTML = html;
-            } catch(e) { div.innerHTML = 'Erro.'; }
-        }
-
-        async function removerCliente(user) {
-            if (!db) return;
-            await db.collection('nemo_clientes').doc(user).delete();
+            adminLogadoAtual = user;
+            document.getElementById('admin-login-box').style.display = 'none';
+            document.getElementById('admin-recuperar-box').style.display = 'none';
+            document.getElementById('admin-painel').style.display = 'block';
+            document.getElementById('admin-senha-atual').value = '';
+            document.getElementById('admin-senha-nova').value = '';
             atualizarListaClientes();
-        }
-
-        async function enviarSolicitacao(e) {
-            e.preventDefault();
-            let texto = document.getElementById('conteudo-pedido').value.trim();
-            let cliente = document.getElementById('painel-user-nome').innerText;
-            if (!texto || !db) return;
-            await db.collection('nemo_solicitacoes').add({ cliente, conteudo: texto, data: new Date().toLocaleDateString('pt-BR'), timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-            alert('Solicitação enviada!');
-            document.getElementById('conteudo-pedido').value = '';
-        }
-
-        async function atualizarListaSolicitacoes() {
-            let div = document.getElementById('lista-solicitacoes');
-            if (!db) return;
-            let snapshot = await db.collection('nemo_solicitacoes').orderBy('timestamp', 'desc').get();
-            let html = '<ul>';
-            snapshot.forEach(doc => {
-                let s = doc.data();
-                html += `<li><b>${s.cliente}</b>: ${s.conteudo} <button onclick="removerSolicitacao('${doc.id}')" style="background:var(--success); width:auto; padding:2px 5px;">Ok</button></li>`;
-            });
-            html += '</ul>';
-            div.innerHTML = html;
-        }
-
-        async function removerSolicitacao(id) {
-            if (!db) return;
-            await db.collection('nemo_solicitacoes').doc(id).delete();
+            atualizarListaAdmins();
             atualizarListaSolicitacoes();
+        } else {
+            alert('Usuário ou senha de Administrador incorretos!');
+        }
+    }
+
+    function alterarMinhaSenha() {
+        let senhaAtual = document.getElementById('admin-senha-atual').value.trim();
+        let senhaNova = document.getElementById('admin-senha-nova').value.trim();
+
+        if (!senhaAtual || !senhaNova) {
+            alert('Preencha a senha atual e a nova senha.');
+            return;
         }
 
-        function sairAdmin() {
-            document.getElementById('admin-painel').style.display = 'none';
-            document.getElementById('admin-login-box').style.display = 'block';
+        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        let index = admins.findIndex(a => a.user === adminLogadoAtual);
+
+        if (index !== -1) {
+            if (admins[index].pass !== senhaAtual) {
+                alert('A senha atual informada está incorreta.');
+                return;
+            }
+            admins[index].pass = senhaNova;
+            localStorage.setItem('nemo_admins', JSON.stringify(admins));
+            alert('Sua senha foi alterada com sucesso!');
+            document.getElementById('admin-senha-atual').value = '';
+            document.getElementById('admin-senha-nova').value = '';
+        }
+    }
+
+    function mostrarRecuperacaoAdmin() {
+        document.getElementById('admin-login-box').style.display = 'none';
+        document.getElementById('admin-recuperar-box').style.display = 'block';
+    }
+
+    function voltarLoginAdmin() {
+        document.getElementById('admin-recuperar-box').style.display = 'none';
+        document.getElementById('admin-login-box').style.display = 'block';
+    }
+
+    function enviarRecuperacaoAdmin() {
+        let email = document.getElementById('admin-email-recuperar').value.trim();
+        if (!email) {
+            alert('Por favor, informe o e-mail.');
+            return;
         }
 
-        async function fazerLoginCliente(e) {
-            e.preventDefault();
-            let user = document.getElementById('cli-user').value.trim();
-            let pass = document.getElementById('cli-pass').value.trim();
-            if (!db) return alert('Banco não configurado.');
-            try {
-                let doc = await db.collection('nemo_clientes').doc(user).get();
-                if (doc.exists && doc.data().pass === pass) {
-                    let c = doc.data();
-                    document.getElementById('painel-user-nome').innerText = c.user;
-                    document.getElementById('painel-vencimento').innerText = c.vencimento;
-                    document.getElementById('cliente-login-box').style.display = 'none';
-                    document.getElementById('cliente-painel').style.display = 'block';
-                } else {
-                    alert('Dados inválidos.');
-                }
-            } catch(e) { alert('Erro.'); }
-        }
+        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        let adminEncontrado = admins.find(a => a.email === email);
 
-        function sairCliente() {
-            document.getElementById('cliente-painel').style.display = 'none';
-            document.getElementById('cliente-login-box').style.display = 'block';
+        if (adminEncontrado) {
+            alert(`Instruções e link de recuperação de senha enviados com sucesso para o e-mail: ${email}`);
+            document.getElementById('admin-email-recuperar').value = '';
+            voltarLoginAdmin();
+        } else {
+            alert('E-mail não encontrado na base de administradores.');
         }
-    </script>
+    }
+
+    function cadastrarAdmin() {
+        let user = document.getElementById('novo-admin-user').value.trim();
+        let pass = document.getElementById('novo-admin-pass').value.trim();
+        let email = document.getElementById('novo-admin-email').value.trim();
+        if (!user || !pass || !email) return alert('Preencha todos os campos do admin.');
+
+        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        if (admins.some(a => a.user === user)) return alert('Admin já existe!');
+
+        admins.push({ user, pass, email, ativo: true });
+        localStorage.setItem('nemo_admins', JSON.stringify(admins));
+        alert('Administrador cadastrado!');
+        document.getElementById('novo-admin-user').value = '';
+        document.getElementById('novo-admin-pass').value = '';
+        document.getElementById('novo-admin-email').value = '';
+        atualizarListaAdmins();
+    }
+
+    function atualizarListaAdmins() {
+        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        let div = document.getElementById('lista-admins');
+        if (admins.length === 0) {
+            div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum admin cadastrado.</p>';
+            return;
+        }
+        let html = '<ul style="font-size: 13px;">';
+        admins.forEach((a, index) => {
+            let statusTexto = a.ativo !== false ? '<span style="color:var(--success);">Ativo</span>' : '<span style="color:var(--danger);">Bloqueado</span>';
+            let textoBotaoBloqueio = a.ativo !== false ? 'Bloquear' : 'Desbloquear';
+            let corBotaoBloqueio = a.ativo !== false ? '#ffc107' : '#28a745';
+
+            html += `<li><b>${a.user}</b> (${a.email}) - Status: ${statusTexto} 
+                <button onclick="alternarBloqueioAdmin(${index})" style="background:${corBotaoBloqueio}; color:black; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;">${textoBotaoBloqueio}</button>
+                <button onclick="removerAdmin(${index})" style="background:red; color:white; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;">Excluir</button>
+            </li>`;
+        });
+        html += '</ul>';
+        div.innerHTML = html;
+    }
+
+    function alternarBloqueioAdmin(index) {
+        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        if (admins[index].user === adminLogadoAtual) {
+            alert('Você não pode bloquear o seu próprio acesso atual!');
+            return;
+        }
+        admins[index].ativo = admins[index].ativo === false ? true : false;
+        localStorage.setItem('nemo_admins', JSON.stringify(admins));
+        atualizarListaAdmins();
+    }
+
+    function removerAdmin(index) {
+        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        if (admins[index].user === adminLogadoAtual) {
+            alert('Você não pode excluir a si mesmo enquanto está logado!');
+            return;
+        }
+        if (admins.length <= 1) {
+            alert('Você não pode excluir o último administrador restante!');
+            return;
+        }
+        admins.splice(index, 1);
+        localStorage.setItem('nemo_admins', JSON.stringify(admins));
+        atualizarListaAdmins();
+    }
+
+    function cadastrarCliente() {
+        let user = document.getElementById('novo-user').value.trim();
+        let pass = document.getElementById('novo-pass').value.trim();
+        if (!user || !pass) return alert('Preencha os campos.');
+
+        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
+        if (clientes.some(c => c.user === user)) return alert('Cliente já existe!');
+
+        let venc = new Date();
+        venc.setDate(venc.getDate() + 30);
+        let mesAtualStr = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+        clientes.push({ 
+            user, 
+            pass, 
+            vencimento: venc.toLocaleDateString('pt-BR'),
+            historico: [{ mes: mesAtualStr, dataPagamento: new Date().toLocaleDateString('pt-BR') }]
+        });
+        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
+        alert('Cliente cadastrado com sucesso!');
+        document.getElementById('novo-user').value = '';
+        document.getElementById('novo-pass').value = '';
+        atualizarListaClientes();
+    }
+
+    function atualizarListaClientes() {
+        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
+        let div = document.getElementById('lista-clientes');
+        if (clientes.length === 0) {
+            div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum cliente cadastrado.</p>';
+            return;
+        }
+        let html = '<ul style="font-size: 13px;">';
+        clientes.forEach((c, index) => {
+            html += `<li><b>${c.user}</b> - Vence: ${c.vencimento} 
+                <button onclick="adicionarMesPagamento(${index})" style="background:var(--success); color:white; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;" title="Registrar novo mês pago">+ Mês</button>
+                <button onclick="removerCliente(${index})" style="background:red; color:white; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;">X</button>
+            </li>`;
+        });
+        html += '</ul>';
+        div.innerHTML = html;
+    }
+
+    function adicionarMesPagamento(index) {
+        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
+        let cliente = clientes[index];
+        let novoMes = prompt("Digite o nome do mês/referência pago (Ex: Agosto/2026):", new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
+        if (!novoMes) return;
+
+        if (!cliente.historico) cliente.historico = [];
+        cliente.historico.push({ mes: novoMes, dataPagamento: new Date().toLocaleDateString('pt-BR') });
+
+        let partes = cliente.vencimento.split('/');
+        let dataVenc = new Date(partes[2], partes[1] - 1, partes[0]);
+        dataVenc.setDate(dataVenc.getDate() + 30);
+        cliente.vencimento = dataVenc.toLocaleDateString('pt-BR');
+
+        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
+        atualizarListaClientes();
+        alert(`Pagamento registrado com sucesso para ${cliente.user}!`);
+    }
+
+    function removerCliente(index) {
+        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
+        clientes.splice(index, 1);
+        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
+        atualizarListaClientes();
+    }
+
+    function enviarSolicitacao(event) {
+        event.preventDefault();
+        let texto = document.getElementById('conteudo-pedido').value.trim();
+        let clienteAtual = document.getElementById('painel-user-nome').innerText;
+        if (!texto) return;
+
+        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
+        solicitacoes.push({ cliente: clienteAtual, conteudo: texto, data: new Date().toLocaleDateString('pt-BR') });
+        localStorage.setItem('nemo_solicitacoes', JSON.stringify(solicitacoes));
+        alert('Solicitação enviada!');
+        document.getElementById('conteudo-pedido').value = '';
+    }
+
+    function atualizarListaSolicitacoes() {
+        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
+        let div = document.getElementById('lista-solicitacoes');
+        if (solicitacoes.length === 0) {
+            div.innerHTML = '<p style="color: #aaa; font-size: 13px; margin:0;">Nenhuma solicitação.</p>';
+            return;
+        }
+        let html = '<ul style="font-size: 13px; margin:0; padding-left:15px;">';
+        solicitacoes.forEach((s, index) => {
+            html += `<li style="margin-bottom: 8px;"><b>${s.cliente}</b> pediu: "${s.conteudo}" <button onclick="removerSolicitacao(${index})" style="background:var(--success); color:white; border:none; padding:2px 6px; border-radius:3px; cursor:pointer; float:right;">Concluído</button></li>`;
+        });
+        html += '</ul>';
+        div.innerHTML = html;
+    }
+
+    function removerSolicitacao(index) {
+        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
+        solicitacoes.splice(index, 1);
+        localStorage.setItem('nemo_solicitacoes', JSON.stringify(solicitacoes));
+        atualizarListaSolicitacoes();
+    }
+
+    function sairAdmin() {
+        adminLogadoAtual = null;
+        document.getElementById('admin-painel').style.display = 'none';
+        document.getElementById('admin-login-box').style.display = 'block';
+    }
+
+    function fazerLoginCliente(event) {
+        event.preventDefault();
+        let user = document.getElementById('cli-user').value.trim();
+        let pass = document.getElementById('cli-pass').value.trim();
+        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
+        let clienteEncontrado = clientes.find(c => c.user === user && c.pass === pass);
+
+        if (clienteEncontrado) {
+            clienteLogadoGlobal = clienteEncontrado;
+            document.getElementById('cliente-login-box').style.display = 'none';
+            document.getElementById('cliente-painel').style.display = 'block';
+            document.getElementById('painel-user-nome').innerText = clienteEncontrado.user;
+            document.getElementById('painel-vencimento').innerText = clienteEncontrado.vencimento;
+
+            let divHist = document.getElementById('cliente-historico-pagamentos');
+            if (!clienteEncontrado.historico || clienteEncontrado.historico.length === 0) {
+                divHist.innerHTML = '<p style="font-size:12px; color:#aaa; margin:0;">Nenhum pagamento registrado.</p>';
+            } else {
+                let htmlHist = '<ul style="font-size:12px; margin:0; padding-left:15px;">';
+                clienteEncontrado.historico.forEach(h => {
+                    htmlHist += `<li>✅ <b>${h.mes}</b> (Pago em: ${h.dataPagamento})</li>`;
+                });
+                htmlHist += '</ul>';
+                divHist.innerHTML = htmlHist;
+            }
+        } else {
+            alert('Usuário ou senha de cliente inválidos.');
+        }
+    }
+
+    function sairCliente() {
+        clienteLogadoGlobal = null;
+        document.getElementById('cli-user').value = '';
+        document.getElementById('cli-pass').value = '';
+        document.getElementById('cliente-painel').style.display = 'none';
+        document.getElementById('cliente-login-box').style.display = 'block';
+    }
+</script>
+
 </body>
 </html>
-               
