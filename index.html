@@ -232,6 +232,9 @@
                 <button onclick="voltarParaSubpastas()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Subpastas</button>
                 <div id="lista-conteudo" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
+            
+            <!-- Box para listagem dinâmica de categorias -->
+            <div id="lista-categorias-dinamica"></div>
         </div>
     </div>
 
@@ -283,9 +286,7 @@
 
                 <div class="info-box" style="border-left-color: var(--success);">
                     <p style="margin: 0 0 8px 0; font-weight: bold;">Histórico de Meses Pagos:</p>
-                    <div id="cliente-historico-pagamentos" style="max-height: 120px; overflow-y: auto;">
-                        <!-- Preenchido via script -->
-                    </div>
+                    <div id="cliente-historico-pagamentos" style="max-height: 120px; overflow-y: auto;"></div>
                 </div>
 
                 <p>Cadastre seu cartão para débito automático mensal:</p>
@@ -400,150 +401,138 @@
     }
 
     async function carregarListaM3U() {
-        let inputTexto = document.getElementById('m3u-input').value.trim();
-        if (!inputTexto) {
-            alert('Por favor, insira o link da lista M3U.');
+        const inputElement = document.getElementById('m3u-input') || document.querySelector('input[type="text"]');
+        if (!inputElement) {
+            alert("Erro crítico: Nenhum campo de texto foi encontrado na página.");
+            return;
+        }
+
+        const urlServidor = inputElement.value.replace(/(\r\n|\n|\r)/gm, "").trim();
+        if (!urlServidor) {
+            alert("A caixa de texto está vazia! Cole o link M3U nela.");
             return;
         }
 
         let btnCarregar = document.getElementById('btn-carregar');
         let statusDiv = document.getElementById('status-carregamento');
 
-        // Ativa o estado de carregamento na tela
         btnCarregar.disabled = true;
         btnCarregar.innerText = 'Carregando...';
         statusDiv.style.display = 'block';
         statusDiv.innerText = '⏳ Baixando lista do servidor, por favor aguarde...';
 
-        let textoM3U = "";
-        if (inputTexto.startsWith('http://') || inputTexto.startsWith('https://')) {
-            try {
-                let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(inputTexto);
+        try {
+            let textoM3U = "";
+            if (urlServidor.startsWith('http://') || urlServidor.startsWith('https://')) {
+                const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
+                const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
+
                 let response = await fetch(proxyUrl);
-                
-                if (!response.ok) throw new Error('Erro na resposta do servidor');
+                if (!response.ok) throw new Error("Erro no servidor proxy (Status " + response.status + ")");
                 textoM3U = await response.text();
-            } catch (error) {
-                console.error(error);
-                alert('Erro ao carregar o link automaticamente. Cole o conteúdo do arquivo M3U diretamente na caixa.');
-                
-                // Restaura o botão e limpa o status em caso de erro
+            } else {
+                textoM3U = urlServidor;
+            }
+
+            statusDiv.innerText = '⚙️ Processando canais e categorias...';
+            
+            setTimeout(() => {
+                processarTextoM3U(textoM3U);
                 btnCarregar.disabled = false;
                 btnCarregar.innerText = 'Carregar Lista';
                 statusDiv.style.display = 'none';
-                return;
-            }
-        } else {
-            textoM3U = inputTexto;
-        }
+            }, 100);
 
-        statusDiv.innerText = '⚙️ Processando canais e categorias...';
-
-        // Pequeno atraso para o navegador atualizar o texto na tela antes de processar os dados pesados
-        setTimeout(() => {
-            processarTextoM3U(textoM3U);
-            
-            // Restaura o botão e oculta o status
+        } catch (error) {
+            console.error("Erro capturado:", error);
+            alert('Falha ao carregar a lista: ' + error.message);
             btnCarregar.disabled = false;
             btnCarregar.innerText = 'Carregar Lista';
             statusDiv.style.display = 'none';
-        }, 100);
+        }
     }
 
     function processarTextoM3U(textoM3U) {
         if (!textoM3U) return;
-    
-    // Deixa compatível com qualquer nome que o resto do script chame
-    window.processarConteudoM3U = processarTextoM3U;
 
-    let linhas = textoM3U.split('\n');
-    let estrutura = { Canais: {}, Filmes: {}, Series: {} };
+        let linhas = textoM3U.split('\n');
+        let estrutura = { Canais: {}, Filmes: {}, Series: {} };
 
-    let groupAtual = "Geral";
-    let nomeAtual = "";
+        let groupAtual = "Geral";
+        let nomeAtual = "";
 
-    for (let i = 0; i < linhas.length; i++) {
-        let linha = linhas[i].trim();
+        for (let i = 0; i < linhas.length; i++) {
+            let linha = linhas[i].trim();
 
-        if (linha.startsWith('#EXTINF:')) {
-            let partesVirgula = linha.split(',');
-            if (partesVirgula.length > 1) {
-                nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
-            }
-
-            if (linha.includes('group-title="')) {
-                let match = linha.match(/group-title="([^"]+)"/);
-                if (match && match[1]) {
-                    groupAtual = match[1];
+            if (linha.startsWith('#EXTINF:')) {
+                let partesVirgula = linha.split(',');
+                if (partesVirgula.length > 1) {
+                    nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
                 }
-            }
-        } else if (linha.startsWith('http')) {
-            let urlCanal = linha;
-            
-            // Organiza automaticamente nas categorias principais do painel
-            let tipoCat = "Canais";
-            let lowerGroup = groupAtual.toLowerCase();
-            if (lowerGroup.includes('filme') || lowerGroup.includes('vod')) {
-                tipoCat = "Filmes";
-            } else if (lowerGroup.includes('serie') || lowerGroup.includes('série')) {
-                tipoCat = "Series";
-            }
 
-            if (!estrutura[tipoCat][groupAtual]) {
-                estrutura[tipoCat][groupAtual] = [];
-            }
+                if (linha.includes('group-title="')) {
+                    let match = linha.match(/group-title="([^"]+)"/);
+                    if (match && match[1]) {
+                        groupAtual = match[1];
+                    }
+                }
+            } else if (linha.startsWith('http')) {
+                let urlCanal = linha;
+                
+                let tipoCat = "Canais";
+                let lowerGroup = groupAtual.toLowerCase();
+                if (lowerGroup.includes('filme') || lowerGroup.includes('vod') || lowerGroup.includes('movie')) {
+                    tipoCat = "Filmes";
+                } else if (lowerGroup.includes('serie') || lowerGroup.includes('série')) {
+                    tipoCat = "Series";
+                }
 
-            estrutura[tipoCat][groupAtual].push({
-                nome: nomeAtual || "Canal/Mídia",
-                url: urlCanal
-            });
+                if (!estrutura[tipoCat][groupAtual]) {
+                    estrutura[tipoCat][groupAtual] = [];
+                }
+
+                estrutura[tipoCat][groupAtual].push({
+                    nome: nomeAtual || "Canal/Mídia",
+                    url: urlCanal
+                });
+            }
         }
+
+        window.estruturaGlobal = estrutura;
+        estruturaGlobal = estrutura;
+
+        let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
+        let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
+        let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
+
+        document.getElementById('painel-iptv').style.display = 'block';
+        document.getElementById('canal-reproduzindo').innerText = '';
+        voltarParaTipos();
+
+        alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
     }
 
-    // Dispara a exibição visual se o painel tiver a função de desenhar as pastas
-    if (typeof exibirEstruturaNaTela === 'function') {
-        exibirEstruturaNaTela(estrutura);
-    } else {
-        console.log("Estrutura M3U processada com sucesso:", estrutura);
+    function exibirEstruturaNaTela(estrutura) {
+        let container = document.getElementById('painel-iptv');
+        if (!container) return;
+        
+        let html = "<div style='color: #fff; padding: 15px; background: #1a1a1a; border-radius: 8px; margin-top: 15px;'>";
+        html += "<h3 style='margin-bottom: 10px;'>📁 Categorias Encontradas:</h3>";
+        
+        for (let cat in estrutura.Canais) {
+            html += `<p style='margin: 5px 0;'>🔹 <b>${cat}</b> (${estrutura.Canais[cat].length} canais)</p>`;
+        }
+        html += `</div>`;
+        
+        let boxAntigo = document.getElementById('lista-categorias-dinamica');
+        if (boxAntigo) boxAntigo.remove();
+        
+        let divNova = document.createElement('div');
+        divNova.id = 'lista-categorias-dinamica';
+        divNova.innerHTML = html;
+        container.appendChild(divNova);
+        container.style.display = 'block';
     }
-}
-    estruturaGlobal = estrutura;
-
-    let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
-    let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
-    let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
-
-    document.getElementById('painel-iptv').style.display = 'block';
-    document.getElementById('canal-reproduzindo').innerText = '';
-    voltarParaTipos();
-
-    alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
-}
-
-// COLE AQUI EMBAIXO, ISOLADA:
-function exibirEstruturaNaTela(estrutura) {
-    let container = document.getElementById('painel-iptv');
-    if (!container) return;
-    
-    let html = "<div style='color: #fff; padding: 15px; background: #1a1a1a; border-radius: 8px; margin-top: 15px;'>";
-    html += "<h3 style='margin-bottom: 10px;'>📁 Categorias Encontradas:</h3>";
-    
-    for (let cat in estrutura.Canais) {
-        html += `<p style='margin: 5px 0;'>🔹 <b>${cat}</b> (${estrutura.Canais[cat].length} canais)</p>`;
-    }
-    
-    html += `</div>`;
-    
-    let boxAntigo = document.getElementById('lista-categorias-dinamica');
-    if (boxAntigo) boxAntigo.remove();
-    
-    let divNova = document.createElement('div');
-    divNova.id = 'lista-categorias-dinamica';
-    divNova.innerHTML = html;
-    container.appendChild(divNova);
-    container.style.display = 'block';
-
-}
 
     function abrirTipoPrincipal(tipo) {
         tipoAtual = tipo;
@@ -976,131 +965,6 @@ function exibirEstruturaNaTela(estrutura) {
         document.getElementById('cliente-painel').style.display = 'none';
         document.getElementById('cliente-login-box').style.display = 'block';
     }
-            
-
-
-  // 1. Função chamada diretamente pelo clique do botão "Carregar Lista"
-// --- BLOCO PARA ADICIONAR NO FINAL DO SEU SCRIPT ---
-
-async function carregarListaM3U() {
-    // Procura o input por ID ou pega o primeiro input de texto caso o ID mude
-    const inputElement = document.getElementById('m3u-input') || document.querySelector('input[type="text"]');
-    
-    if (!inputElement) {
-        alert("Erro crítico: Nenhum campo de texto foi encontrado na página.");
-        return;
-    }
-
-    const urlServidor = inputElement.value.replace(/(\r\n|\n|\r)/gm, "").trim();
-    
-    if (!urlServidor) {
-        alert("A caixa de texto está vazia! Cole o link M3U nela.");
-        return;
-    }
-
-    try {
-        const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
-        const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
-
-        console.log("Iniciando requisição para:", proxyUrl);
-        const resposta = await fetch(proxyUrl);
-        
-        if (!resposta.ok) {
-            throw new Error("Erro no servidor proxy (Status " + resposta.status + ")");
-        }
-
-        const dadosM3U = await resposta.text();
-        console.log("Dados recebidos com sucesso! Tamanho:", dadosM3U.length);
-        
-        processarTextoM3U(dadosM3U);
-
-    } catch (erro) {
-        console.error("Erro capturado:", erro);
-        alert("Falha ao carregar a lista: " + erro.message);
-    
-    }
-}
-
-function processarTextoM3U(textoM3U) {
-    if (!textoM3U) return;
-
-    let linhas = textoM3U.split('\n');
-    let estrutura = { Canais: {}, Filmes: {}, Series: {} };
-
-    let groupAtual = "Geral";
-    let nomeAtual = "";
-
-    for (let i = 0; i < linhas.length; i++) {
-        let linha = linhas[i].trim();
-
-        if (linha.startsWith('#EXTINF:')) {
-            let partesVirgula = linha.split(',');
-            if (partesVirgula.length > 1) {
-                nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
-            }
-
-            if (linha.includes('group-title="')) {
-                let match = linha.match(/group-title="([^"]+)"/);
-                if (match && match[1]) {
-                    groupAtual = match[1];
-                }
-            }
-        } else if (linha.startsWith('http')) {
-            let urlCanal = linha;
-            
-            let tipoCat = "Canais";
-            let lowerGroup = groupAtual.toLowerCase();
-            if (lowerGroup.includes('filme') || lowerGroup.includes('vod') || lowerGroup.includes('movie')) {
-                tipoCat = "Filmes";
-            } else if (lowerGroup.includes('serie') || lowerGroup.includes('série')) {
-                tipoCat = "Series";
-            }
-
-            if (!estrutura[tipoCat][groupAtual]) {
-                estrutura[tipoCat][groupAtual] = [];
-            }
-
-            estrutura[tipoCat][groupAtual].push({
-                nome: nomeAtual || "Canal/Mídia",
-                url: urlCanal
-            });
-        }
-    }
-
-    window.estruturaGlobal = estrutura;
-    exibirEstruturaNaTela(estrutura);
-}
-
-function exibirEstruturaNaTela(estrutura) {
-    let container = document.getElementById('painel-iptv');
-    if (!container) return;
-    
-    let html = "<div style='color: #fff; padding: 20px; background: #1a1a1a; border-radius: 8px;'>";
-    html += "<h3 style='margin-bottom: 15px; color: #00d2ff;'>📁 Categorias Encontradas:</h3>";
-    
-    let totalCanais = 0;
-    for (let cat in estrutura.Canais) {
-        totalCanais += estrutura.Canais[cat].length;
-        html += `<p style='margin: 8px 0; border-bottom: 1px solid #333; padding-bottom: 5px;'>🔹 <b>${cat}</b> <span style='color: #888; font-size: 12px;'>(${estrutura.Canais[cat].length} itens)</span></p>`;
-    }
-    
-    html += `</div>`;
-    
-    let boxAntigo = document.getElementById('lista-categorias-dinamica');
-    if (boxAntigo) boxAntigo.remove();
-    
-    let divNova = document.createElement('div');
-    divNova.id = 'lista-categorias-dinamica';
-    divNova.innerHTML = html;
-    container.appendChild(divNova);
-    container.style.display = 'block';
-
-    alert(`Lista carregada com sucesso! Total de canais mapeados: ${totalCanais}`);
-
-}
-    
-
-
 </script>
 </body>
 </html>
