@@ -986,15 +986,18 @@ function exibirEstruturaNaTela(estrutura) {
 // --- BLOCO PARA ADICIONAR NO FINAL DO SEU SCRIPT ---
 
 async function carregarListaM3U() {
-    const inputElement = document.getElementById('m3u-input');
+    // Procura o input por ID ou pega o primeiro input de texto caso o ID mude
+    const inputElement = document.getElementById('m3u-input') || document.querySelector('input[type="text"]');
+    
     if (!inputElement) {
-        alert("Campo de input M3U não encontrado.");
+        alert("Erro crítico: Nenhum campo de texto foi encontrado na página.");
         return;
     }
 
     const urlServidor = inputElement.value.replace(/(\r\n|\n|\r)/gm, "").trim();
+    
     if (!urlServidor) {
-        alert("Por favor, insira o link da sua lista M3U.");
+        alert("A caixa de texto está vazia! Cole o link M3U nela.");
         return;
     }
 
@@ -1002,19 +1005,22 @@ async function carregarListaM3U() {
         const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
         const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
 
-        console.log("Baixando lista de:", proxyUrl);
+        console.log("Iniciando requisição para:", proxyUrl);
         const resposta = await fetch(proxyUrl);
         
         if (!resposta.ok) {
-            throw new Error("Erro ao baixar (Status " + resposta.status + ")");
+            throw new Error("Erro no servidor proxy (Status " + resposta.status + ")");
         }
 
         const dadosM3U = await resposta.text();
+        console.log("Dados recebidos com sucesso! Tamanho:", dadosM3U.length);
+        
         processarTextoM3U(dadosM3U);
 
     } catch (erro) {
-        console.error("Falha ao carregar:", erro);
-        alert("Erro ao carregar a lista: " + erro.message);
+        console.error("Erro capturado:", erro);
+        alert("Falha ao carregar a lista: " + erro.message);
+    
     }
 }
 
