@@ -930,21 +930,18 @@
         document.getElementById('cliente-painel').style.display = 'none';
         document.getElementById('cliente-login-box').style.display = 'block';
     }
-async function carregarLista() {
-    // ATENÇÃO: Verifique se o ID do input na sua página é 'url-servidor' ou mude para o nome correto
-    const inputElement = document.getElementById('url-servidor') || document.querySelector('input[type="text"]');
-    const urlServidor = inputElement ? inputElement.value : '';
+async function carregarListaM3U() {
+    // Pega o link diretamente do campo <textarea id="m3u-input"> da linha 196
+    const inputElement = document.getElementById('m3u-input');
+    const urlServidor = inputElement ? inputElement.value.trim() : '';
 
     if (!urlServidor) {
-        alert("Por favor, digite ou cole o link da lista M3U.");
+        alert("Por favor, cole o link da sua lista M3U na caixa.");
         return;
     }
 
     try {
-        // Mostra um aviso visual que está tentando carregar
-        console.log("Baixando lista...");
-
-        // Usa o proxy CORS para o navegador do GitHub não bloquear o link externo
+        // Usa o proxy CORS para o navegador não bloquear o link externo
         const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(urlServidor);
         const resposta = await fetch(proxyUrl);
 
@@ -954,21 +951,17 @@ async function carregarLista() {
 
         const dadosM3U = await resposta.text();
         
-        // Se chegou aqui, a lista foi baixada com sucesso!
         alert("Lista carregada com sucesso!");
-        console.log("Dados M3U recebidos:", dadosM3U.substring(0, 100) + "...");
-
-        // Salva os dados ou passa para o player exibir os canais
-        // (adicione aqui a lógica que o seu player usa para ler o texto M3U)
+        
+        // Aqui você coloca a função do seu player que processa o 'dadosM3U'
+        // Exemplo: processarConteudoM3U(dadosM3U);
 
     } catch (erro) {
         console.warn("Falha no carregamento automático:", erro);
-        alert("Erro ao carregar a lista automaticamente. O link pode estar bloqueado ou offline.");
+        alert("Erro ao carregar a lista automaticamente. Verifique se o link está correto.");
     }
 }
 
-
-}
 </script>
 </body>
 </html>
