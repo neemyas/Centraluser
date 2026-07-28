@@ -983,6 +983,8 @@ function exibirEstruturaNaTela(estrutura) {
 
 
   // 1. Função chamada diretamente pelo clique do botão "Carregar Lista"
+// --- BLOCO PARA ADICIONAR NO FINAL DO SEU SCRIPT ---
+
 async function carregarListaM3U() {
     const inputElement = document.getElementById('m3u-input');
     if (!inputElement) {
@@ -1016,7 +1018,6 @@ async function carregarListaM3U() {
     }
 }
 
-// 2. Processa o arquivo M3U baixado e separa as categorias
 function processarTextoM3U(textoM3U) {
     if (!textoM3U) return;
 
@@ -1067,12 +1068,11 @@ function processarTextoM3U(textoM3U) {
     exibirEstruturaNaTela(estrutura);
 }
 
-// 3. Desenha as pastas bonitinhas na tela
 function exibirEstruturaNaTela(estrutura) {
     let container = document.getElementById('painel-iptv');
     if (!container) return;
     
-    let html = "<div style='color: #fff; padding: 20px; background: #1a1a1a; border-radius: 8px; margin-top: 15px;'>";
+    let html = "<div style='color: #fff; padding: 20px; background: #1a1a1a; border-radius: 8px;'>";
     html += "<h3 style='margin-bottom: 15px; color: #00d2ff;'>📁 Categorias Encontradas:</h3>";
     
     let totalCanais = 0;
@@ -1093,6 +1093,7 @@ function exibirEstruturaNaTela(estrutura) {
     container.style.display = 'block';
 
     alert(`Lista carregada com sucesso! Total de canais mapeados: ${totalCanais}`);
+
 }
     
 
