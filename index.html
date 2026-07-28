@@ -451,7 +451,7 @@
     }
 
     function processarTextoM3U(textoM3U) {
-    if (!textoM3U) return;
+        if (!textoM3U) return;
     
     // Deixa compatível com qualquer nome que o resto do script chame
     window.processarConteudoM3U = processarTextoM3U;
@@ -519,7 +519,34 @@
     
     alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
 }
+// (Código anterior da função)
+    alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
+}
 
+
+// COLE AQUI EMBAIXO, ISOLADA:
+function exibirEstruturaNaTela(estrutura) {
+    let container = document.getElementById('painel-iptv');
+    if (!container) return;
+    
+    let html = "<div style='color: #fff; padding: 15px; background: #1a1a1a; border-radius: 8px; margin-top: 15px;'>";
+    html += "<h3 style='margin-bottom: 10px;'>📁 Categorias Encontradas:</h3>";
+    
+    for (let cat in estrutura.Canais) {
+        html += `<p style='margin: 5px 0;'>🔹 <b>${cat}</b> (${estrutura.Canais[cat].length} canais)</p>`;
+    }
+    
+    html += `</div>`;
+    
+    let boxAntigo = document.getElementById('lista-categorias-dinamica');
+    if (boxAntigo) boxAntigo.remove();
+    
+    let divNova = document.createElement('div');
+    divNova.id = 'lista-categorias-dinamica';
+    divNova.innerHTML = html;
+    container.appendChild(divNova);
+    container.style.display = 'block';
+}
 
     function abrirTipoPrincipal(tipo) {
         tipoAtual = tipo;
