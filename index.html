@@ -950,30 +950,41 @@
             
 
 
-    async function carregarListaM3U() {
+   async function carregarListaM3U() {
     const inputElement = document.getElementById('m3u-input');
-    const urlServidor = inputElement ? inputElement.value.trim() : '';
+    if (!inputElement) return;
+
+    // Remove quebras de linha e espaços indesejados gerados pela caixa de texto
+    const urlServidor = inputElement.value.replace(/(\r\n|\n|\r)/gm, "").trim();
 
     if (!urlServidor) {
         alert("Por favor, insira o link da sua lista M3U.");
         return;
     }
+
     try {
         const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
         const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
 
+        console.log("Baixando de:", proxyUrl);
         const resposta = await fetch(proxyUrl);
+        
         if (!resposta.ok) {
             throw new Error("Erro ao baixar (Status " + resposta.status + ")");
         }
 
         const dadosM3U = await resposta.text();
-        
+
+        // Processa o conteúdo e exibe na tela
         if (typeof processarConteudoM3U === 'function') {
             processarConteudoM3U(dadosM3U);
+        } else {
+            console.warn("Função processarConteudoM3U não encontrada, exibindo dados brutos.");
         }
+
+        const painel = document.getElementById('painel-iptv');
+        if (painel) painel.style.display = 'block';
         
-        document.getElementById('painel-iptv').style.display = 'block'; // 📂 Exibe as pastas
         alert("Lista carregada com sucesso!");
 
     } catch (erro) {
@@ -981,7 +992,6 @@
         alert("Erro ao carregar a lista: " + erro.message);
     }
 }
-
 
 
 </script>
