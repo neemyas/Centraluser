@@ -931,7 +931,6 @@
         document.getElementById('cliente-login-box').style.display = 'block';
     }
 async function carregarListaM3U() {
-    // Pega o link diretamente do campo <textarea id="m3u-input"> da linha 196
     const inputElement = document.getElementById('m3u-input');
     const urlServidor = inputElement ? inputElement.value.trim() : '';
 
@@ -941,24 +940,28 @@ async function carregarListaM3U() {
     }
 
     try {
-        // Usa o proxy CORS para o navegador não bloquear o link externo
-        const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(urlServidor);
+        // Usando um proxy alternativo mais robusto para listas M3U
+        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(urlServidor);
         const resposta = await fetch(proxyUrl);
 
         if (!resposta.ok) {
-            throw new Error(`Erro HTTP: ${resposta.status}`);
+            throw new Error(`Servidor respondeu com erro (${resposta.status})`);
         }
 
         const dadosM3U = await resposta.text();
         
+        if (!dadosM3U || dadosM3U.length < 10) {
+            throw new Error("A lista retornada está vazia ou inválida.");
+        }
+
         alert("Lista carregada com sucesso!");
         
-        // Aqui você coloca a função do seu player que processa o 'dadosM3U'
-        // Exemplo: processarConteudoM3U(dadosM3U);
+        // Insira aqui a função do seu player que lê os canais, ex:
+        // processarConteudoM3U(dadosM3U);
 
     } catch (erro) {
-        console.warn("Falha no carregamento automático:", erro);
-        alert("Erro ao carregar a lista automaticamente. Verifique se o link está correto.");
+        console.warn("Falha no carregamento:", erro);
+        alert("Erro ao carregar: " + erro.message);
     }
 }
 
