@@ -451,53 +451,70 @@
     }
 
     function processarTextoM3U(textoM3U) {
-        let linhas = textoM3U.split('\n');
-        let estrutura = { Canais: {}, Filmes: {}, Series: {} };
+    let linhas = textoM3U.split('\n');
+    let estrutura = { Canais: {}, Filmes: {}, Series: {} };
 
-        let nomeAtual = "";
-        let groupAtual = "Geral";
+    let groupAtual = "Geral";
+    let nomeAtual = "";
 
-        for (let i = 0; i < linhas.length; i++) {
-            let linha = linhas[i].trim();
-            if (linha.startsWith('#EXTINF:')) {
-                let partesVirgula = linha.split(',');
+    for (let i = 0; i < linhas.length; i++) {
+        let linha = linhas[i].trim();
+        
+        // Lê as informações do canal/filme/série na linha #EXTINF
+        if (linha.startsWith('#EXTINF')) {
+            // Tenta capturar o nome após a última vírgula
+            let partesVirgula = linha.split(',');
+            if (partesVirgula.length > 1) {
                 nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
-
-                if (linha.includes('group-title="')) {
-                    let match = linha.match(/group-title="([^"]+)"/);
-                    if (match && match[1]) groupAtual = match[1].trim();
-                }
-            } else if (linha && !linha.startsWith('#')) {
-                let urlStream = linha;
-                let item = { nome: nomeAtual || "Sem Nome", url: urlStream };
-
-                let buscaTipo = (groupAtual + " " + nomeAtual).toLowerCase();
-                let destino = 'Canais';
-
-                if (buscaTipo.includes('filme') || buscaTipo.includes('movie') || buscaTipo.includes('vod') || buscaTipo.includes('cinema') || buscaTipo.includes('lançamento')) {
-                    destino = 'Filmes';
-                } else if (buscaTipo.includes('serie') || buscaTipo.includes('série') || buscaTipo.includes('temporada') || buscaTipo.includes('episodio') || buscaTipo.includes('ep.')) {
-                    destino = 'Series';
-                }
-
-                if (!estrutura[destino][groupAtual]) {
-                    estrutura[destino][groupAtual] = [];
-                }
-                estrutura[destino][groupAtual].push(item);
             }
+
+            // Tenta capturar o group-title
+            if (linha.includes('group-title="')) {
+                let match = linha.match(/group-title="([^"]+)"/);
+                if (match && match[1]) {
+                    groupAtual = match[1].trim();
+                }
+            } else {
+                groupAtual = "Geral";
+            }
+        } 
+        // Lê a URL na linha seguinte que não seja comentário
+        else if (linha && !linha.startsWith('#')) {
+            let urlStream = linha;
+            let item = { nome: nomeAtual || "Sem Nome", url: urlStream };
+
+            let buscaTipo = (groupAtual + " " + nomeAtual).toLowerCase();
+            let destino = 'Canais';
+
+            if (buscaTipo.includes('filme') || buscaTipo.includes('movie') || buscaTipo.includes('vod')) {
+                destino = 'Filmes';
+            } else if (buscaTipo.includes('serie') || buscaTipo.includes('série') || buscaTipo.includes('temporada')) {
+                destino = 'Series';
+            }
+
+            if (!estrutura[destino][groupAtual]) {
+                estrutura[destino][groupAtual] = [];
+            }
+            estrutura[destino][groupAtual].push(item);
+            
+            // Reseta o nome para o próximo item
+            nomeAtual = "";
         }
-
-        estruturaGlobal = estrutura;
-
-        let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
-        let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
-        let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
-
-        document.getElementById('painel-iptv').style.display = 'block';
-        document.getElementById('canal-reproduzindo').innerText = '';
-        voltarParaTipos();
-        alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
     }
+
+    estruturaGlobal = estrutura;
+
+    let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
+    let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
+    let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
+
+    document.getElementById('painel-iptv').style.display = 'block';
+    document.getElementById('canal-reproduzindo').innerText = '';
+    voltarParaTipos();
+    
+    alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
+}
+
 
     function abrirTipoPrincipal(tipo) {
         tipoAtual = tipo;
