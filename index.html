@@ -930,8 +930,10 @@
         document.getElementById('cliente-painel').style.display = 'none';
         document.getElementById('cliente-login-box').style.display = 'block';
     }
-            async function carregarListaM3U() {
+            
     async function carregarListaM3U() {
+    alert("O clique funcionou!"); // Teste visual imediato
+
     const inputElement = document.getElementById('m3u-input');
     const urlServidor = inputElement ? inputElement.value.trim() : '';
 
@@ -941,20 +943,15 @@
     }
 
     try {
-        console.log("Carregando conteúdos via proxy dedicado...");
-
         const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
         const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
 
         const resposta = await fetch(proxyUrl);
-
         if (!resposta.ok) {
-            const detalheErro = await resposta.text();
-            throw new Error(`Erro ao baixar (Status ${resposta.status}): ${detalheErro}`);
+            throw new Error("Erro ao baixar (Status " + resposta.status + ")");
         }
 
         const dadosM3U = await resposta.text();
-        
         if (typeof processarConteudoM3U === 'function') {
             processarConteudoM3U(dadosM3U);
         }
@@ -966,6 +963,7 @@
         alert("Erro ao carregar a lista: " + erro.message);
     }
 }
+
 
 </script>
 </body>
