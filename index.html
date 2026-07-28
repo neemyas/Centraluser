@@ -57,6 +57,11 @@
             box-sizing: border-box;
             cursor: pointer;
         }
+        .btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
         .whatsapp-btn { background: #25D366; }
         .card-btn { background: linear-gradient(90deg, #28a745 0%, #20c997 100%); }
         .admin-btn { background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); color: #000; }
@@ -189,7 +194,9 @@
         <h2>Player Web</h2>
         <p>Cole o link da sua lista M3U abaixo:</p>
         <textarea id="m3u-input" rows="3" placeholder="http://exemplo.com/get.php?username=..."></textarea>
-        <button onclick="carregarListaM3U()" class="btn">Carregar Lista</button>
+        <button id="btn-carregar" onclick="carregarListaM3U()" class="btn">Carregar Lista</button>
+        <!-- Mensagem de status de carregamento -->
+        <p id="status-carregamento" style="color: #ffc107; font-weight: bold; font-size: 14px; margin: 10px 0; display: none;"></p>
 
         <!-- Área de Navegação por Pastas e Subpastas -->
         <div id="painel-iptv" class="playlist-container" style="display: none;">
@@ -240,7 +247,7 @@
         <h2>Ainda não é nosso cliente?</h2>
         <p>ASSINE AGORA MESMO</p>
         <h4 style="margin: 15px 0 10px 0; color: var(--primary);">Escolha seu plano agora:</h4>
-        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%201%20m%C3%Aas%20por%20R%24%2035%2C00" target="_blank" class="btn">1 Mês – R$ 35,00</a>
+        <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%201%20m%C3%eas%20por%20R%24%2035%2C00" target="_blank" class="btn">1 Mês – R$ 35,00</a>
         <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%203%20meses%20por%20R%24%2090%2C00" target="_blank" class="btn">3 Meses – R$ 90,00</a>
         <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%206%20meses%20por%20R%24%20165%2C00" target="_blank" class="btn">6 Meses – R$ 165,00</a>
         <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%201%20ano%20por%20R%24%20300%2C00" target="_blank" class="btn">1 Ano – R$ 300,00</a>
@@ -399,23 +406,48 @@
             return;
         }
 
+        let btnCarregar = document.getElementById('btn-carregar');
+        let statusDiv = document.getElementById('status-carregamento');
+
+        // Ativa o estado de carregamento na tela
+        btnCarregar.disabled = true;
+        btnCarregar.innerText = 'Carregando...';
+        statusDiv.style.display = 'block';
+        statusDiv.innerText = '⏳ Baixando lista do servidor, por favor aguarde...';
+
         let textoM3U = "";
         if (inputTexto.startsWith('http://') || inputTexto.startsWith('https://')) {
             try {
-                document.getElementById('canal-reproduzindo').innerText = 'Baixando lista do servidor...';
-                let response = await fetch(inputTexto);
-                if (!response.ok) throw new Error('Erro na resposta');
+                let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(inputTexto);
+                let response = await fetch(proxyUrl);
+                
+                if (!response.ok) throw new Error('Erro na resposta do servidor');
                 textoM3U = await response.text();
             } catch (error) {
-                alert('Erro CORS ao baixar pelo link. Cole o conteúdo do arquivo M3U diretamente.');
-                document.getElementById('canal-reproduzindo').innerText = '';
+                console.error(error);
+                alert('Erro ao carregar o link automaticamente. Cole o conteúdo do arquivo M3U diretamente na caixa.');
+                
+                // Restaura o botão e limpa o status em caso de erro
+                btnCarregar.disabled = false;
+                btnCarregar.innerText = 'Carregar Lista';
+                statusDiv.style.display = 'none';
                 return;
             }
         } else {
             textoM3U = inputTexto;
         }
 
-        processarTextoM3U(textoM3U);
+        statusDiv.innerText = '⚙️ Processando canais e categorias...';
+
+        // Pequeno atraso para o navegador atualizar o texto na tela antes de processar os dados pesados
+        setTimeout(() => {
+            processarTextoM3U(textoM3U);
+            
+            // Restaura o botão e oculta o status
+            btnCarregar.disabled = false;
+            btnCarregar.innerText = 'Carregar Lista';
+            statusDiv.style.display = 'none';
+        }, 100);
     }
 
     function processarTextoM3U(textoM3U) {
