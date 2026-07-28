@@ -932,7 +932,6 @@
     }
             
     async function carregarListaM3U() {
-
     const inputElement = document.getElementById('m3u-input');
     const urlServidor = inputElement ? inputElement.value.trim() : '';
 
@@ -951,10 +950,12 @@
         }
 
         const dadosM3U = await resposta.text();
+        
         if (typeof processarConteudoM3U === 'function') {
             processarConteudoM3U(dadosM3U);
         }
         
+        document.getElementById('painel-iptv').style.display = 'block'; // 📂 Exibe as pastas
         alert("Lista carregada com sucesso!");
 
     } catch (erro) {
@@ -962,6 +963,7 @@
         alert("Erro ao carregar a lista: " + erro.message);
     }
 }
+
 
 
 </script>
