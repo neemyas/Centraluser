@@ -930,25 +930,43 @@
         document.getElementById('cliente-painel').style.display = 'none';
         document.getElementById('cliente-login-box').style.display = 'block';
     }
-async function carregarLista(urlServidor) {
+async function carregarLista() {
+    // ATENÇÃO: Verifique se o ID do input na sua página é 'url-servidor' ou mude para o nome correto
+    const inputElement = document.getElementById('url-servidor') || document.querySelector('input[type="text"]');
+    const urlServidor = inputElement ? inputElement.value : '';
+
+    if (!urlServidor) {
+        alert("Por favor, digite ou cole o link da lista M3U.");
+        return;
+    }
+
     try {
-        // Usa um proxy CORS público para mascarar a requisição e evitar o bloqueio do navegador
+        // Mostra um aviso visual que está tentando carregar
+        console.log("Baixando lista...");
+
+        // Usa o proxy CORS para o navegador do GitHub não bloquear o link externo
         const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(urlServidor);
-        
         const resposta = await fetch(proxyUrl);
+
         if (!resposta.ok) {
             throw new Error(`Erro HTTP: ${resposta.status}`);
         }
-        
+
         const dadosM3U = await resposta.text();
-        processarConteudoM3U(dadosM3U); // Sua função que lê os canais
         
+        // Se chegou aqui, a lista foi baixada com sucesso!
+        alert("Lista carregada com sucesso!");
+        console.log("Dados M3U recebidos:", dadosM3U.substring(0, 100) + "...");
+
+        // Salva os dados ou passa para o player exibir os canais
+        // (adicione aqui a lógica que o seu player usa para ler o texto M3U)
+
     } catch (erro) {
         console.warn("Falha no carregamento automático:", erro);
-        // Mantém a opção de fallback se o proxy instabilizar
-        exibirCaixaDeTextoManual();
+        alert("Erro ao carregar a lista automaticamente. O link pode estar bloqueado ou offline.");
     }
 }
+
 
 }
 </script>
