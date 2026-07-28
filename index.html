@@ -948,6 +948,8 @@
         document.getElementById('cliente-login-box').style.display = 'block';
     }
             
+
+
     async function carregarListaM3U() {
     const inputElement = document.getElementById('m3u-input');
     const urlServidor = inputElement ? inputElement.value.trim() : '';
@@ -956,7 +958,6 @@
         alert("Por favor, insira o link da sua lista M3U.");
         return;
     }
-
     try {
         const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
         const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
