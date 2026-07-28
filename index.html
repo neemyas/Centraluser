@@ -982,13 +982,15 @@ function exibirEstruturaNaTela(estrutura) {
             
 
 
-   async function carregarListaM3U() {
+  // 1. Função chamada diretamente pelo clique do botão "Carregar Lista"
+async function carregarListaM3U() {
     const inputElement = document.getElementById('m3u-input');
-    if (!inputElement) return;
+    if (!inputElement) {
+        alert("Campo de input M3U não encontrado.");
+        return;
+    }
 
-    // Remove quebras de linha e espaços indesejados gerados pela caixa de texto
     const urlServidor = inputElement.value.replace(/(\r\n|\n|\r)/gm, "").trim();
-
     if (!urlServidor) {
         alert("Por favor, insira o link da sua lista M3U.");
         return;
@@ -998,7 +1000,7 @@ function exibirEstruturaNaTela(estrutura) {
         const meuProxy = "https://nemo-proxy.neemyasrocha.workers.dev/?url=";
         const proxyUrl = meuProxy + encodeURIComponent(urlServidor);
 
-        console.log("Baixando de:", proxyUrl);
+        console.log("Baixando lista de:", proxyUrl);
         const resposta = await fetch(proxyUrl);
         
         if (!resposta.ok) {
@@ -1006,22 +1008,92 @@ function exibirEstruturaNaTela(estrutura) {
         }
 
         const dadosM3U = await resposta.text();
-
-        // Processa o conteúdo e exibe na tela
-        if (typeof processarConteudoM3U === 'function') {
-            processarConteudoM3U(dadosM3U);
-        } else {
-            console.warn("Função processarConteudoM3U não encontrada, exibindo dados brutos.");
-        }
-
-        const painel = document.getElementById('painel-iptv');
-        if (painel) painel.style.display = 'block';
-        
-        alert("Lista carregada com sucesso!");
+        processarTextoM3U(dadosM3U);
 
     } catch (erro) {
-        console.warn("Falha:", erro);
+        console.error("Falha ao carregar:", erro);
         alert("Erro ao carregar a lista: " + erro.message);
+    }
+}
+
+// 2. Processa o arquivo M3U baixado e separa as categorias
+function processarTextoM3U(textoM3U) {
+    if (!textoM3U) return;
+
+    let linhas = textoM3U.split('\n');
+    let estrutura = { Canais: {}, Filmes: {}, Series: {} };
+
+    let groupAtual = "Geral";
+    let nomeAtual = "";
+
+    for (let i = 0; i < linhas.length; i++) {
+        let linha = linhas[i].trim();
+
+        if (linha.startsWith('#EXTINF:')) {
+            let partesVirgula = linha.split(',');
+            if (partesVirgula.length > 1) {
+                nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
+            }
+
+            if (linha.includes('group-title="')) {
+                let match = linha.match(/group-title="([^"]+)"/);
+                if (match && match[1]) {
+                    groupAtual = match[1];
+                }
+            }
+        } else if (linha.startsWith('http')) {
+            let urlCanal = linha;
+            
+            let tipoCat = "Canais";
+            let lowerGroup = groupAtual.toLowerCase();
+            if (lowerGroup.includes('filme') || lowerGroup.includes('vod') || lowerGroup.includes('movie')) {
+                tipoCat = "Filmes";
+            } else if (lowerGroup.includes('serie') || lowerGroup.includes('série')) {
+                tipoCat = "Series";
+            }
+
+            if (!estrutura[tipoCat][groupAtual]) {
+                estrutura[tipoCat][groupAtual] = [];
+            }
+
+            estrutura[tipoCat][groupAtual].push({
+                nome: nomeAtual || "Canal/Mídia",
+                url: urlCanal
+            });
+        }
+    }
+
+    window.estruturaGlobal = estrutura;
+    exibirEstruturaNaTela(estrutura);
+}
+
+// 3. Desenha as pastas bonitinhas na tela
+function exibirEstruturaNaTela(estrutura) {
+    let container = document.getElementById('painel-iptv');
+    if (!container) return;
+    
+    let html = "<div style='color: #fff; padding: 20px; background: #1a1a1a; border-radius: 8px; margin-top: 15px;'>";
+    html += "<h3 style='margin-bottom: 15px; color: #00d2ff;'>📁 Categorias Encontradas:</h3>";
+    
+    let totalCanais = 0;
+    for (let cat in estrutura.Canais) {
+        totalCanais += estrutura.Canais[cat].length;
+        html += `<p style='margin: 8px 0; border-bottom: 1px solid #333; padding-bottom: 5px;'>🔹 <b>${cat}</b> <span style='color: #888; font-size: 12px;'>(${estrutura.Canais[cat].length} itens)</span></p>`;
+    }
+    
+    html += `</div>`;
+    
+    let boxAntigo = document.getElementById('lista-categorias-dinamica');
+    if (boxAntigo) boxAntigo.remove();
+    
+    let divNova = document.createElement('div');
+    divNova.id = 'lista-categorias-dinamica';
+    divNova.innerHTML = html;
+    container.appendChild(divNova);
+    container.style.display = 'block';
+
+    alert(`Lista carregada com sucesso! Total de canais mapeados: ${totalCanais}`);
+}
     }
 }
 
