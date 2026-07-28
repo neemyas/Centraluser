@@ -451,6 +451,11 @@
     }
 
     function processarTextoM3U(textoM3U) {
+    if (!textoM3U) return;
+    
+    // Deixa compatível com qualquer nome que o resto do script chame
+    window.processarConteudoM3U = processarTextoM3U;
+
     let linhas = textoM3U.split('\n');
     let estrutura = { Canais: {}, Filmes: {}, Series: {} };
 
@@ -459,49 +464,49 @@
 
     for (let i = 0; i < linhas.length; i++) {
         let linha = linhas[i].trim();
-        
-        // Lê as informações do canal/filme/série na linha #EXTINF
-        if (linha.startsWith('#EXTINF')) {
-            // Tenta capturar o nome após a última vírgula
+
+        if (linha.startsWith('#EXTINF:')) {
             let partesVirgula = linha.split(',');
             if (partesVirgula.length > 1) {
                 nomeAtual = partesVirgula[partesVirgula.length - 1].trim();
             }
 
-            // Tenta capturar o group-title
             if (linha.includes('group-title="')) {
                 let match = linha.match(/group-title="([^"]+)"/);
                 if (match && match[1]) {
-                    groupAtual = match[1].trim();
+                    groupAtual = match[1];
                 }
-            } else {
-                groupAtual = "Geral";
             }
-        } 
-        // Lê a URL na linha seguinte que não seja comentário
-        else if (linha && !linha.startsWith('#')) {
-            let urlStream = linha;
-            let item = { nome: nomeAtual || "Sem Nome", url: urlStream };
-
-            let buscaTipo = (groupAtual + " " + nomeAtual).toLowerCase();
-            let destino = 'Canais';
-
-            if (buscaTipo.includes('filme') || buscaTipo.includes('movie') || buscaTipo.includes('vod')) {
-                destino = 'Filmes';
-            } else if (buscaTipo.includes('serie') || buscaTipo.includes('série') || buscaTipo.includes('temporada')) {
-                destino = 'Series';
-            }
-
-            if (!estrutura[destino][groupAtual]) {
-                estrutura[destino][groupAtual] = [];
-            }
-            estrutura[destino][groupAtual].push(item);
+        } else if (linha.startsWith('http')) {
+            let urlCanal = linha;
             
-            // Reseta o nome para o próximo item
-            nomeAtual = "";
+            // Organiza automaticamente nas categorias principais do painel
+            let tipoCat = "Canais";
+            let lowerGroup = groupAtual.toLowerCase();
+            if (lowerGroup.includes('filme') || lowerGroup.includes('vod')) {
+                tipoCat = "Filmes";
+            } else if (lowerGroup.includes('serie') || lowerGroup.includes('série')) {
+                tipoCat = "Series";
+            }
+
+            if (!estrutura[tipoCat][groupAtual]) {
+                estrutura[tipoCat][groupAtual] = [];
+            }
+
+            estrutura[tipoCat][groupAtual].push({
+                nome: nomeAtual || "Canal/Mídia",
+                url: urlCanal
+            });
         }
     }
 
+    // Dispara a exibição visual se o painel tiver a função de desenhar as pastas
+    if (typeof exibirEstruturaNaTela === 'function') {
+        exibirEstruturaNaTela(estrutura);
+    } else {
+        console.log("Estrutura M3U processada com sucesso:", estrutura);
+    }
+}
     estruturaGlobal = estrutura;
 
     let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
