@@ -499,9 +499,7 @@
                     tipoCat = "Series";
                 }
 
-                if (tipoCat === "Canais") {
-                    urlCanal = urlCanal.replace('output=hls', 'output=ts');
-                }
+                let proxyUrl = "https://nemo-proxy.neemyasrocha.workers.dev/?url=" + encodeURIComponent(urlCanal);
 
                 if (tipoCat === "Series") {
                     let nomeSerie = extrairNomeSerie(nomeAtual);
@@ -513,7 +511,7 @@
                     }
                     estrutura.Series[groupAtual][nomeSerie].push({
                         nome: nomeAtual || "Episódio",
-                        url: "https://nemo-proxy.neemyasrocha.workers.dev/?url=" + encodeURIComponent(urlCanal)
+                        url: proxyUrl
                     });
                 } else {
                     if (!estrutura[tipoCat][groupAtual]) {
@@ -521,7 +519,7 @@
                     }
                     estrutura[tipoCat][groupAtual].push({
                         nome: nomeAtual || "Canal/Mídia",
-                        url: "https://nemo-proxy.neemyasrocha.workers.dev/?url=" + encodeURIComponent(urlCanal)
+                        url: proxyUrl
                     });
                 }
             }
@@ -707,40 +705,77 @@
             decodedUrl = url;
         }
 
-        const isLive = (tipoAtual === 'Canais' || decodedUrl.includes('.ts') || decodedUrl.includes('output=ts'));
         const isHls = decodedUrl.includes('.m3u8') || decodedUrl.includes('output=hls');
 
-        if (isLive && window.mpegts && window.mpegts.getFeatureList && window.mpegts.getFeatureList().mseLivePlayback) {
-            const mpegtsPlayer = mpegts.createPlayer({
-                type: 'mpegts',
-                url: url,
-                isLive: true,
-                cors: true
-            });
-            window.mpegtsPlayer = mpegtsPlayer;
-            mpegtsPlayer.attachMediaElement(video);
-            mpegtsPlayer.load();
-            mpegtsPlayer.play().catch(e => {
-                console.log("Erro MPEG-TS:", e);
-                alert("Erro ao reproduzir canal ao vivo. Verifique a conexão.");
-            });
-        } else if (isHls && window.Hls && Hls.isSupported()) {
+        // 1. Tentar HLS.js se for formato HLS
+        if (isHls && window.Hls && Hls.isSupported()) {
             const hls = new Hls();
             window.hlsPlayer = hls;
             hls.loadSource(url);
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(e => console.log("Erro HLS play:", e));
+                video.play().catch(e => tentarFallbackDireto(video, url));
             });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    tentarFallbackDireto(video, url);
+                }
+            });
+            return;
+        }
+
+        // 2. Tentar MPEG-TS se for canal ao vivo tradicional / stream TS
+        if (tipoAtual === 'Canais' && window.mpegts && window.mpegts.getFeatureList && window.mpegts.getFeatureList().mseLivePlayback) {
+            try {
+                const mpegtsPlayer = mpegts.createPlayer({
+                    type: 'mpegts',
+                    url: url,
+                    isLive: true,
+                    cors: true,
+                    withCredentials: false
+                }, {
+                    enableStashBuffer: false,
+                    liveBufferLatencyChasing: true,
+                    autoCleanupSourceBuffer: true
+                });
+                window.mpegtsPlayer = mpegtsPlayer;
+                mpegtsPlayer.attachMediaElement(video);
+                mpegtsPlayer.load();
+                mpegtsPlayer.play().catch(e => {
+                    console.warn("MPEG-TS falhou, usando fallback direto...", e);
+                    tentarFallbackDireto(video, url);
+                });
+                mpegtsPlayer.on(mpegts.Events.ERROR, (errType, errDetail) => {
+                    console.warn("MPEG-TS Erro interno:", errType, errDetail);
+                    tentarFallbackDireto(video, url);
+                });
+                return;
+            } catch (err) {
+                console.warn("Erro ao iniciar mpegts:", err);
+            }
+        }
+
+        // 3. Fallback genérico ou nativo
+        tentarFallbackDireto(video, url);
+    }
+
+    function tentarFallbackDireto(video, url) {
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = url;
-            video.play().catch(e => console.log("Erro HLS nativo:", e));
+            video.play().catch(e => {
+                video.src = url;
+                video.load();
+                video.play().catch(err => {
+                    console.error("Falha na reprodução:", err);
+                    alert("Erro ao reproduzir este canal/mídia. Verifique se a URL está ativa.");
+                });
+            });
         } else {
             video.src = url;
             video.load();
             video.play().catch(e => {
-                console.log("Erro genérico:", e);
-                alert("Seu navegador não suporta a reprodução deste formato diretamente.");
+                console.error("Falha na reprodução genérica:", e);
+                alert("Erro ao reproduzir este canal/mídia. Verifique se a URL está ativa.");
             });
         }
     }
