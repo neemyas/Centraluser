@@ -607,7 +607,6 @@
             window.mpegtsPlayer = null;
         }
 
-        // Decodifica a URL para verificar se é HLS (mesmo quando codificado como %2Em3u8 pelo proxy)
         let decodedUrl = '';
         try {
             decodedUrl = decodeURIComponent(url);
@@ -615,10 +614,20 @@
             decodedUrl = url;
         }
 
-        const isHls = decodedUrl.includes('.m3u8') || url.includes('.m3u8') || url.includes('%2Em3u8') || url.includes('output=hls');
+        const isHls = decodedUrl.includes('.m3u8') || url.includes('.m3u8') || url.includes('%2Em3u8') || url.includes('output=hls') || tipoAtual === 'Canais';
 
         if (isHls && window.Hls && Hls.isSupported()) {
-            const hls = new Hls();
+            const hls = new Hls({
+                xhrSetup: function (xhr, requestUrl) {
+                    // Força cada segmento HLS a passar pelo proxy para evitar Mixed Content
+                    if (!requestUrl.includes('nemo-proxy.neemyasrocha.workers.dev')) {
+                        let proxiedSegmentUrl = "https://nemo-proxy.neemyasrocha.workers.dev/?url=" + encodeURIComponent(requestUrl);
+                        xhr.open('GET', proxiedSegmentUrl, true);
+                    } else {
+                        xhr.open('GET', requestUrl, true);
+                    }
+                }
+            });
             window.hlsPlayer = hls;
             hls.loadSource(url);
             hls.attachMedia(video);
@@ -629,7 +638,6 @@
                 console.error("Erro HLS:", data);
             });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Suporte nativo HLS (Safari / iOS)
             video.src = url;
             video.play().catch(e => console.log("Erro HLS nativo:", e));
         } else if (window.mpegts && window.mpegts.getFeatureList && window.mpegts.getFeatureList().mseLivePlayback) {
