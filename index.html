@@ -383,8 +383,6 @@
     let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
     let tipoAtual = '';
     let subpastaAtual = '';
-    let hlsInstance = null;
-    let mpegtsPlayer = null;
     let clienteLogadoGlobal = null;
     let adminLogadoAtual = null;
 
@@ -512,28 +510,6 @@
         alert(`Lista carregada com sucesso!\n- Canais: ${totalCanais}\n- Filmes: ${totalFilmes}\n- Séries: ${totalSeries}`);
     }
 
-    function exibirEstruturaNaTela(estrutura) {
-        let container = document.getElementById('painel-iptv');
-        if (!container) return;
-        
-        let html = "<div style='color: #fff; padding: 15px; background: #1a1a1a; border-radius: 8px; margin-top: 15px;'>";
-        html += "<h3 style='margin-bottom: 10px;'>📁 Categorias Encontradas:</h3>";
-        
-        for (let cat in estrutura.Canais) {
-            html += `<p style='margin: 5px 0;'>🔹 <b>${cat}</b> (${estrutura.Canais[cat].length} canais)</p>`;
-        }
-        html += `</div>`;
-        
-        let boxAntigo = document.getElementById('lista-categorias-dinamica');
-        if (boxAntigo) boxAntigo.remove();
-        
-        let divNova = document.createElement('div');
-        divNova.id = 'lista-categorias-dinamica';
-        divNova.innerHTML = html;
-        container.appendChild(divNova);
-        container.style.display = 'block';
-    }
-
     function abrirTipoPrincipal(tipo) {
         tipoAtual = tipo;
         document.getElementById('view-tipos').style.display = 'none';
@@ -621,40 +597,60 @@
         let video = document.getElementById('web-player');
         document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
 
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
+        // Limpeza segura dos players anteriores
+        if (window.hlsPlayer) {
+            window.hlsPlayer.destroy();
+            window.hlsPlayer = null;
         }
-        if (mpegtsPlayer) {
-            mpegtsPlayer.destroy();
-            mpegtsPlayer = null;
+        if (window.mpegtsPlayer) {
+            window.mpegtsPlayer.destroy();
+            window.mpegtsPlayer = null;
         }
 
-        if (url.includes('.m3u8') && Hls.isSupported()) {
-            hlsInstance = new Hls();
-            hlsInstance.loadSource(url);
-            hlsInstance.attachMedia(video);
-            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-                video.play().catch(e => console.log(e));
+        // Decodifica a URL para verificar se é HLS (mesmo quando codificado como %2Em3u8 pelo proxy)
+        let decodedUrl = '';
+        try {
+            decodedUrl = decodeURIComponent(url);
+        } catch (e) {
+            decodedUrl = url;
+        }
+
+        const isHls = decodedUrl.includes('.m3u8') || url.includes('.m3u8') || url.includes('%2Em3u8') || url.includes('output=hls');
+
+        if (isHls && window.Hls && Hls.isSupported()) {
+            const hls = new Hls();
+            window.hlsPlayer = hls;
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(e => console.log("Erro HLS play:", e));
             });
-        } else if (mpegts.getFeatureList().mseLivePlayback) {
-            mpegtsPlayer = mpegts.createPlayer({
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                console.error("Erro HLS:", data);
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Suporte nativo HLS (Safari / iOS)
+            video.src = url;
+            video.play().catch(e => console.log("Erro HLS nativo:", e));
+        } else if (window.mpegts && window.mpegts.getFeatureList && window.mpegts.getFeatureList().mseLivePlayback) {
+            const mpegtsPlayer = mpegts.createPlayer({
                 type: 'mpegts',
                 url: url,
                 isLive: true,
                 cors: true
             });
+            window.mpegtsPlayer = mpegtsPlayer;
             mpegtsPlayer.attachMediaElement(video);
             mpegtsPlayer.load();
             mpegtsPlayer.play().catch(e => {
-                console.log(e);
+                console.log("Erro MPEG-TS:", e);
                 alert("Erro ao iniciar a reprodução. Verifique a conexão com o servidor IPTV.");
             });
         } else {
             video.src = url;
             video.load();
             video.play().catch(e => {
-                console.log(e);
+                console.log("Erro genérico:", e);
                 alert("Seu navegador não suporta a reprodução deste formato diretamente.");
             });
         }
