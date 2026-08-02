@@ -227,17 +227,14 @@
                 <div id="lista-subpastas" class="folder-grid"></div>
             </div>
 
-            <!-- Nível 2.5: Lista de Séries Agrupadas -->
-            <div id="view-series" style="display: none;">
-                <button onclick="voltarParaSubpastas()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Subpastas</button>
-                <div id="lista-series" class="folder-grid"></div>
-            </div>
-
-            <!-- Nível 3: Lista de Canais/Filmes/Episódios -->
+            <!-- Nível 3: Lista de Canais/Filmes da Subpasta -->
             <div id="view-itens" style="display: none;">
-                <button onclick="voltarNivelAnterior()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;" id="btn-voltar-itens">← Voltar</button>
+                <button onclick="voltarParaSubpastas()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Subpastas</button>
                 <div id="lista-conteudo" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
+            
+            <!-- Box para listagem dinâmica de categorias -->
+            <div id="lista-categorias-dinamica"></div>
         </div>
     </div>
 
@@ -386,7 +383,8 @@
     let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
     let tipoAtual = '';
     let subpastaAtual = '';
-    let serieAtual = '';
+    let hlsInstance = null;
+    let mpegtsPlayer = null;
     let clienteLogadoGlobal = null;
     let adminLogadoAtual = null;
 
@@ -454,16 +452,6 @@
         }
     }
 
-    function extrairNomeSerie(nomeCompleto) {
-        let limpo = nomeCompleto
-            .replace(/([sS]\d+[\s\.\-_]*[eE]\d+)/g, '')
-            .replace(/(\d+[\s\.\-_]*[xX]\d+)/g, '')
-            .replace(/(temporada\s*\d+|temp\s*\d+|ep\s*\d+|episodio\s*\d+)/gi, '')
-            .trim();
-        limpo = limpo.replace(/[\-\–\—\.\s]+$/, '').trim();
-        return limpo || nomeCompleto;
-    }
-
     function processarTextoM3U(textoM3U) {
         if (!textoM3U) return;
 
@@ -499,29 +487,14 @@
                     tipoCat = "Series";
                 }
 
-                let proxyUrl = "https://nemo-proxy.neemyasrocha.workers.dev/?url=" + encodeURIComponent(urlCanal);
-
-                if (tipoCat === "Series") {
-                    let nomeSerie = extrairNomeSerie(nomeAtual);
-                    if (!estrutura.Series[groupAtual]) {
-                        estrutura.Series[groupAtual] = {};
-                    }
-                    if (!estrutura.Series[groupAtual][nomeSerie]) {
-                        estrutura.Series[groupAtual][nomeSerie] = [];
-                    }
-                    estrutura.Series[groupAtual][nomeSerie].push({
-                        nome: nomeAtual || "Episódio",
-                        url: proxyUrl
-                    });
-                } else {
-                    if (!estrutura[tipoCat][groupAtual]) {
-                        estrutura[tipoCat][groupAtual] = [];
-                    }
-                    estrutura[tipoCat][groupAtual].push({
-                        nome: nomeAtual || "Canal/Mídia",
-                        url: proxyUrl
-                    });
+                if (!estrutura[tipoCat][groupAtual]) {
+                    estrutura[tipoCat][groupAtual] = [];
                 }
+
+                estrutura[tipoCat][groupAtual].push({
+                    nome: nomeAtual || "Canal/Mídia",
+                    url: "https://nemo-proxy.neemyasrocha.workers.dev/?url=" + encodeURIComponent(urlCanal)
+                });
             }
         }
 
@@ -530,7 +503,7 @@
 
         let totalCanais = Object.values(estrutura.Canais).reduce((acc, curr) => acc + curr.length, 0);
         let totalFilmes = Object.values(estrutura.Filmes).reduce((acc, curr) => acc + curr.length, 0);
-        let totalSeries = Object.values(estrutura.Series).reduce((acc, grupos) => acc + Object.values(grupos).reduce((a, c) => a + c.length, 0), 0);
+        let totalSeries = Object.values(estrutura.Series).reduce((acc, curr) => acc + curr.length, 0);
 
         document.getElementById('painel-iptv').style.display = 'block';
         document.getElementById('canal-reproduzindo').innerText = '';
@@ -556,12 +529,11 @@
         }
 
         grupos.forEach(grupo => {
-            let qtd = tipo === 'Series' ? Object.keys(subpastas[grupo]).length : subpastas[grupo].length;
-            let rotuloQtd = tipo === 'Series' ? `${qtd} séries` : `${qtd} itens`;
+            let qtd = subpastas[grupo].length;
             let grupoSeguro = grupo.replace(/'/g, "\\'");
             html += `<div class="folder-card" onclick="abrirSubpasta('${grupoSeguro}')">
                 <h4>📁 ${grupo}</h4>
-                <span style="font-size:11px; color:#aaa;">(${rotuloQtd})</span>
+                <span style="font-size:11px; color:#aaa;">(${qtd} itens)</span>
             </div>`;
         });
         divSub.innerHTML = html;
@@ -570,55 +542,17 @@
     function abrirSubpasta(grupo) {
         subpastaAtual = grupo;
         document.getElementById('view-subpastas').style.display = 'none';
-        
-        if (tipoAtual === 'Series') {
-            document.getElementById('view-series').style.display = 'block';
-            document.getElementById('breadcrumb').innerText = `Início > Séries > ${grupo}`;
-            renderizarSeries(estruturaGlobal.Series[grupo] || {});
-        } else {
-            document.getElementById('view-itens').style.display = 'block';
-            document.getElementById('filtro-busca').style.display = 'block';
-            document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual} > ${grupo}`;
-            document.getElementById('filtro-busca').value = '';
-            renderizarItens(estruturaGlobal[tipoAtual][grupo] || []);
-        }
-    }
-
-    function renderizarSeries(seriesObj) {
-        let div = document.getElementById('lista-series');
-        let chaves = Object.keys(seriesObj);
-        if (chaves.length === 0) {
-            div.innerHTML = '<p style="color:#aaa; font-size:13px;">Nenhuma série encontrada.</p>';
-            return;
-        }
-        let html = '';
-        chaves.forEach(serie => {
-            let qtd = seriesObj[serie].length;
-            let serieSegura = serie.replace(/'/g, "\\'");
-            html += `<div class="folder-card" onclick="abrirSerie('${serieSegura}')">
-                <h4>📺 ${serie}</h4>
-                <span style="font-size:11px; color:#aaa;">(${qtd} episódios)</span>
-            </div>`;
-        });
-        div.innerHTML = html;
-    }
-
-    function abrirSerie(serie) {
-        serieAtual = serie;
-        document.getElementById('view-series').style.display = 'none';
         document.getElementById('view-itens').style.display = 'block';
         document.getElementById('filtro-busca').style.display = 'block';
-        document.getElementById('breadcrumb').innerText = `Início > Séries > ${subpastaAtual} > ${serie}`;
+        document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual} > ${grupo}`;
         document.getElementById('filtro-busca').value = '';
-        renderizarItens(estruturaGlobal.Series[subpastaAtual][serie] || []);
+        renderizarItens(estruturaGlobal[tipoAtual][grupo] || []);
     }
 
     function voltarParaTipos() {
         tipoAtual = '';
         subpastaAtual = '';
-        serieAtual = '';
         document.getElementById('view-subpastas').style.display = 'none';
-        document.getElementById('view-series').style.display = 'none';
         document.getElementById('view-itens').style.display = 'none';
         document.getElementById('view-tipos').style.display = 'grid';
         document.getElementById('filtro-busca').style.display = 'none';
@@ -628,30 +562,11 @@
 
     function voltarParaSubpastas() {
         subpastaAtual = '';
-        serieAtual = '';
         document.getElementById('view-itens').style.display = 'none';
-        document.getElementById('view-series').style.display = 'none';
         document.getElementById('view-subpastas').style.display = 'block';
         document.getElementById('filtro-busca').style.display = 'none';
         document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual}`;
         document.getElementById('filtro-busca').value = '';
-    }
-
-    function voltarParaSeries() {
-        serieAtual = '';
-        document.getElementById('view-itens').style.display = 'none';
-        document.getElementById('view-series').style.display = 'block';
-        document.getElementById('filtro-busca').style.display = 'none';
-        document.getElementById('breadcrumb').innerText = `Início > Séries > ${subpastaAtual}`;
-        document.getElementById('filtro-busca').value = '';
-    }
-
-    function voltarNivelAnterior() {
-        if (tipoAtual === 'Series' && serieAtual) {
-            voltarParaSeries();
-        } else {
-            voltarParaSubpastas();
-        }
     }
 
     function renderizarItens(itens) {
@@ -675,12 +590,7 @@
 
     function filtrarItens() {
         let termo = document.getElementById('filtro-busca').value.toLowerCase();
-        let itensOriginais = [];
-        if (tipoAtual === 'Series' && serieAtual) {
-            itensOriginais = estruturaGlobal.Series[subpastaAtual][serieAtual] || [];
-        } else if (subpastaAtual && estruturaGlobal[tipoAtual][subpastaAtual]) {
-            itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual];
-        }
+        let itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual] || [];
         let filtrados = itensOriginais.filter(i => i.nome.toLowerCase().includes(termo));
         renderizarItens(filtrados);
     }
@@ -689,95 +599,65 @@
         let video = document.getElementById('web-player');
         document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
 
-        if (window.hlsPlayer) {
-            window.hlsPlayer.destroy();
-            window.hlsPlayer = null;
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
         }
-        if (window.mpegtsPlayer) {
-            window.mpegtsPlayer.destroy();
-            window.mpegtsPlayer = null;
-        }
-
-        let decodedUrl = '';
-        try {
-            decodedUrl = decodeURIComponent(url);
-        } catch (e) {
-            decodedUrl = url;
+        if (mpegtsPlayer) {
+            mpegtsPlayer.destroy();
+            mpegtsPlayer = null;
         }
 
-        const isHls = decodedUrl.includes('.m3u8') || decodedUrl.includes('output=hls');
-
-        // 1. Tentar HLS.js se for formato HLS
-        if (isHls && window.Hls && Hls.isSupported()) {
-            const hls = new Hls();
-            window.hlsPlayer = hls;
-            hls.loadSource(url);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(e => tentarFallbackDireto(video, url));
-            });
-            hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    tentarFallbackDireto(video, url);
-                }
-            });
-            return;
+        let urlOriginal = url;
+        if (url.includes('?url=')) {
+            urlOriginal = decodeURIComponent(url.split('?url=')[1]);
         }
 
-        // 2. Tentar MPEG-TS se for canal ao vivo tradicional / stream TS
-        if (tipoAtual === 'Canais' && window.mpegts && window.mpegts.getFeatureList && window.mpegts.getFeatureList().mseLivePlayback) {
-            try {
-                const mpegtsPlayer = mpegts.createPlayer({
-                    type: 'mpegts',
-                    url: url,
-                    isLive: true,
-                    cors: true,
-                    withCredentials: false
-                }, {
-                    enableStashBuffer: false,
-                    liveBufferLatencyChasing: true,
-                    autoCleanupSourceBuffer: true
+        function tentarTocar(streamUrl) {
+            if ((streamUrl.includes('.m3u8') || streamUrl.includes('m3u8')) && Hls.isSupported()) {
+                hlsInstance = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true
                 });
-                window.mpegtsPlayer = mpegtsPlayer;
+                hlsInstance.loadSource(streamUrl);
+                hlsInstance.attachMedia(video);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play().catch(e => console.log("Erro no autoplay:", e));
+                });
+                hlsInstance.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal && streamUrl !== urlOriginal) {
+                        console.warn("Falha no proxy HLS. Tentando URL direta...");
+                        tentarTocar(urlOriginal);
+                    }
+                });
+            } else if (mpegts.getFeatureList().mseLivePlayback) {
+                mpegtsPlayer = mpegts.createPlayer({
+                    type: 'mpegts',
+                    url: streamUrl,
+                    isLive: true,
+                    cors: true
+                });
                 mpegtsPlayer.attachMediaElement(video);
                 mpegtsPlayer.load();
                 mpegtsPlayer.play().catch(e => {
-                    console.warn("MPEG-TS falhou, usando fallback direto...", e);
-                    tentarFallbackDireto(video, url);
+                    console.warn("Falha no MPEGTS. Tentando fallback direto...", e);
+                    if (streamUrl !== urlOriginal) {
+                        tentarTocar(urlOriginal);
+                    } else {
+                        video.src = streamUrl;
+                        video.play().catch(err => {
+                            alert("Erro ao reproduzir este canal/mídia. Verifique se a URL está ativa.");
+                        });
+                    }
                 });
-                mpegtsPlayer.on(mpegts.Events.ERROR, (errType, errDetail) => {
-                    console.warn("MPEG-TS Erro interno:", errType, errDetail);
-                    tentarFallbackDireto(video, url);
-                });
-                return;
-            } catch (err) {
-                console.warn("Erro ao iniciar mpegts:", err);
+            } else {
+                video.src = streamUrl;
+                video.load();
+                video.play().catch(e => alert("Navegador não suportou este formato de transmissão."));
             }
         }
 
-        // 3. Fallback genérico ou nativo
-        tentarFallbackDireto(video, url);
-    }
-
-    function tentarFallbackDireto(video, url) {
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = url;
-            video.play().catch(e => {
-                video.src = url;
-                video.load();
-                video.play().catch(err => {
-                    console.error("Falha na reprodução:", err);
-                    alert("Erro ao reproduzir este canal/mídia. Verifique se a URL está ativa.");
-                });
-            });
-        } else {
-            video.src = url;
-            video.load();
-            video.play().catch(e => {
-                console.error("Falha na reprodução genérica:", e);
-                alert("Erro ao reproduzir este canal/mídia. Verifique se a URL está ativa.");
-            });
-        }
+        tentarTocar(url);
     }
 
     function mudarAba(aba) {
