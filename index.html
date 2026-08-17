@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nemo IPTV</title>
-    <!-- Bibliotecas para reprodução de HLS e MPEG-TS no navegador -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
@@ -84,6 +83,25 @@
             color: white;
             box-sizing: border-box;
             font-family: inherit;
+        }
+
+        /* Estilo da caixa de busca com ícone de Lupa */
+        .search-box-wrapper {
+            position: relative;
+            margin: 12px 0;
+        }
+        .search-box-wrapper input {
+            padding-left: 40px;
+            margin: 0;
+        }
+        .search-box-wrapper .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: var(--primary);
+            pointer-events: none;
         }
 
         .tab-menu {
@@ -189,26 +207,24 @@
 </header>
 
 <div class="container">
-    <!-- Seção do Player Web M3U Inteligente -->
     <div class="card">
         <h2>Player Web</h2>
         <p>Cole o link da sua lista M3U abaixo:</p>
         <textarea id="m3u-input" rows="3" placeholder="http://exemplo.com/get.php?username=..."></textarea>
         <button id="btn-carregar" onclick="carregarListaM3U()" class="btn">Carregar Lista</button>
-        <!-- Mensagem de status de carregamento -->
         <p id="status-carregamento" style="color: #ffc107; font-weight: bold; font-size: 14px; margin: 10px 0; display: none;"></p>
 
-        <!-- Área de Navegação por Pastas e Subpastas -->
         <div id="painel-iptv" class="playlist-container" style="display: none;">
             <div id="breadcrumb" style="margin-bottom: 10px; font-size: 13px; color: #aaa;">Início</div>
             
-            <!-- Video Player Ativo -->
             <video id="web-player" controls autoplay></video>
             <h4 id="canal-reproduzindo" style="margin: 8px 0; color: var(--success); font-size: 14px;"></h4>
 
-            <input type="text" id="filtro-busca" placeholder="Pesquisar..." onkeyup="filtrarItens()" style="margin: 10px 0; display:none;">
+            <div class="search-box-wrapper" id="container-busca" style="display:none;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="filtro-busca" placeholder="Buscar filmes, séries ou canais..." onkeyup="executarBuscaGlobal()">
+            </div>
 
-            <!-- Nível 1: Tipos Principais (Canais, Filmes, Séries) -->
             <div id="view-tipos" class="folder-grid">
                 <div class="folder-card" onclick="abrirTipoPrincipal('Canais')">
                     <h4>📺 Canais ao Vivo</h4>
@@ -221,37 +237,31 @@
                 </div>
             </div>
 
-            <!-- Nível 2: Sub-pastas (Grupos da Lista) -->
             <div id="view-subpastas" style="display: none;">
                 <button onclick="voltarParaTipos()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Categorias</button>
                 <div id="lista-subpastas" class="folder-grid"></div>
             </div>
 
-            <!-- Nível 2.5: Pastas de Séries Individuais -->
             <div id="view-series-pastas" style="display: none;">
                 <button onclick="voltarParaSubpastas()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar às Categorias de Séries</button>
                 <div id="lista-series-pastas" class="folder-grid"></div>
             </div>
 
-            <!-- Nível 3: Lista de Canais/Filmes/Episódios da Subpasta -->
             <div id="view-itens" style="display: none;">
                 <button id="btn-voltar-itens" onclick="voltarNivelAnterior()" class="btn" style="padding: 6px; font-size: 12px; width: auto; margin-bottom: 10px;">← Voltar</button>
                 <div id="lista-conteudo" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
             
-            <!-- Box para listagem dinâmica de categorias -->
             <div id="lista-categorias-dinamica"></div>
         </div>
     </div>
 
-    <!-- Seção de Download -->
     <div class="card">
         <h2>Nosso Aplicativo</h2>
         <p>A melhor experiência de streaming na palma da sua mão.</p>
         <a href="https://www.mediafire.com/file/svgbdbnebbrar2v/app-debug.apk/file" target="_blank" class="btn">Baixar App (NemoSTM)</a>
     </div>
 
-    <!-- Seção de Planos e Pagamento -->
     <div class="card">
         <h2>Ainda não é nosso cliente?</h2>
         <p>ASSINE AGORA MESMO</p>
@@ -262,7 +272,6 @@
         <a href="https://api.whatsapp.com/send?phone=5534998958333&text=Ol%C3%A1%2C%20quero%20assinar%20o%20plano%20de%201%20ano%20por%20R%24%20300%2C00" target="_blank" class="btn">1 Ano – R$ 299,90</a>
     </div>
 
-    <!-- Central de Acesso (Cliente / Administrador) -->
     <div class="card">
         <h2>Portal de Acesso</h2>
         
@@ -271,7 +280,6 @@
             <button class="tab-btn" onclick="mudarAba('admin')">Administrador</button>
         </div>
 
-        <!-- ABA CLIENTE -->
         <div id="view-cliente" class="section-view active">
             <div id="cliente-login-box">
                 <p>Entre com seu usuário e senha criados pelo suporte.</p>
@@ -311,9 +319,7 @@
             </div>
         </div>
 
-        <!-- ABA ADMINISTRADOR -->
         <div id="view-admin" class="section-view">
-            <!-- Tela de Login Admin -->
             <div id="admin-login-box">
                 <p>Acesse com seu usuário e senha de Administrador</p>
                 <input type="text" id="admin-user-input" placeholder="Usuário Admin" required>
@@ -322,7 +328,6 @@
                 <button onclick="mostrarRecuperacaoAdmin()" class="link-recuperar">Esqueci minha senha</button>
             </div>
 
-            <!-- Tela de Recuperação de Senha Admin -->
             <div id="admin-recuperar-box" style="display: none;">
                 <p>Informe o e-mail cadastrado para receber instruções de recuperação:</p>
                 <input type="email" id="admin-email-recuperar" placeholder="Seu e-mail cadastrado" required>
@@ -330,11 +335,9 @@
                 <button onclick="voltarLoginAdmin()" class="link-recuperar">Voltar ao Login</button>
             </div>
 
-            <!-- Painel do Admin -->
             <div id="admin-painel" style="display: none;">
                 <h3 style="color: #ffc107;">Painel de Controle do Admin</h3>
                 
-                <!-- Bloco de Alterar Própria Senha -->
                 <div style="background: #242424; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
                     <p style="margin-top:0; font-weight:bold;">Alterar Minha Senha de Admin</p>
                     <input type="password" id="admin-senha-atual" placeholder="Senha Atual">
@@ -377,7 +380,6 @@
         </div>
     </div>
 
-    <!-- Portal de Contato -->
     <div class="card">
         <h2>Precisa de Ajuda?</h2>
         <p>Fale diretamente com nosso suporte.</p>
@@ -501,19 +503,24 @@
                 let urlCanal = linha;
                 let lowerGroup = groupAtual.toLowerCase();
                 let lowerNome = nomeAtual.toLowerCase();
+                let lowerUrl = urlCanal.toLowerCase();
                 
                 let tipoCat = "Canais";
 
-                // REGRA 1: Força canais 24h para Canais ao Vivo
+                // REGRA 1: Checa se o arquivo é vídeo direto (Filme) pela extensão
+                const extensoesFilme = ['.mp4', '.mkv', '.avi', '.m4v', '.mov'];
+                let eVideoDireto = extensoesFilme.some(ext => lowerUrl.split('?')[0].endsWith(ext));
+
+                // REGRA 2: Força canais 24h para Canais ao Vivo
                 if (lowerGroup.includes('24h') || lowerGroup.includes('24 horas') || lowerNome.includes('24h') || lowerNome.includes('24 horas')) {
                     tipoCat = "Canais";
                 } 
-                // REGRA 2: Detecta Séries
-                else if (lowerGroup.includes('serie') || lowerGroup.includes('série') || /s\d{2}\s*e\d{2}|t\d{2}\s*ep\d{2}|temporada/i.test(lowerNome)) {
+                // REGRA 3: Detecta Séries por padrões de temporada/episódio ou categoria
+                else if (lowerGroup.includes('serie') || lowerGroup.includes('série') || lowerGroup.includes('series') || /s\d{2}\s*e\d{2}|t\d{2}\s*ep\d{2}|temporada/i.test(lowerNome)) {
                     tipoCat = "Series";
                 } 
-                // REGRA 3: Detecta Filmes
-                else if (lowerGroup.includes('filme') || lowerGroup.includes('vod') || lowerGroup.includes('movie')) {
+                // REGRA 4: Detecta Filmes por grupo, extensão ou termos comuns VOD
+                else if (eVideoDireto || lowerGroup.includes('filme') || lowerGroup.includes('vod') || lowerGroup.includes('movie') || lowerGroup.includes('cinema') || lowerGroup.includes('ondemand') || lowerGroup.includes('pelicula') || lowerGroup.includes('4k') || lowerGroup.includes('1080p')) {
                     tipoCat = "Filmes";
                 }
 
@@ -555,6 +562,7 @@
         });
 
         document.getElementById('painel-iptv').style.display = 'block';
+        document.getElementById('container-busca').style.display = 'block';
         document.getElementById('canal-reproduzindo').innerText = '';
         voltarParaTipos();
 
@@ -582,7 +590,7 @@
         grupos.forEach(grupo => {
             let qtd = 0;
             if (tipo === 'Series') {
-                qtd = Object.keys(subpastas[grupo]).length; // Quantidade de Séries no grupo
+                qtd = Object.keys(subpastas[grupo]).length;
             } else {
                 qtd = subpastas[grupo].length;
             }
@@ -607,9 +615,7 @@
         } else {
             document.getElementById('view-series-pastas').style.display = 'none';
             document.getElementById('view-itens').style.display = 'block';
-            document.getElementById('filtro-busca').style.display = 'block';
             document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual} > ${grupo}`;
-            document.getElementById('filtro-busca').value = '';
             document.getElementById('btn-voltar-itens').onclick = voltarParaSubpastas;
             renderizarItens(estruturaGlobal[tipoAtual][grupo] || []);
         }
@@ -639,9 +645,7 @@
         serieAtual = nomeSerie;
         document.getElementById('view-series-pastas').style.display = 'none';
         document.getElementById('view-itens').style.display = 'block';
-        document.getElementById('filtro-busca').style.display = 'block';
         document.getElementById('breadcrumb').innerText = `Início > Séries > ${subpastaAtual} > ${nomeSerie}`;
-        document.getElementById('filtro-busca').value = '';
         document.getElementById('btn-voltar-itens').onclick = voltarParaSeriesPastas;
         renderizarItens(estruturaGlobal.Series[subpastaAtual][nomeSerie] || []);
     }
@@ -650,7 +654,6 @@
         serieAtual = '';
         document.getElementById('view-itens').style.display = 'none';
         document.getElementById('view-series-pastas').style.display = 'block';
-        document.getElementById('filtro-busca').style.display = 'none';
         document.getElementById('breadcrumb').innerText = `Início > Séries > ${subpastaAtual}`;
     }
 
@@ -662,7 +665,6 @@
         document.getElementById('view-series-pastas').style.display = 'none';
         document.getElementById('view-itens').style.display = 'none';
         document.getElementById('view-tipos').style.display = 'grid';
-        document.getElementById('filtro-busca').style.display = 'none';
         document.getElementById('breadcrumb').innerText = 'Início';
         document.getElementById('filtro-busca').value = '';
     }
@@ -673,9 +675,7 @@
         document.getElementById('view-itens').style.display = 'none';
         document.getElementById('view-series-pastas').style.display = 'none';
         document.getElementById('view-subpastas').style.display = 'block';
-        document.getElementById('filtro-busca').style.display = 'none';
         document.getElementById('breadcrumb').innerText = `Início > ${tipoAtual}`;
-        document.getElementById('filtro-busca').value = '';
     }
 
     function voltarNivelAnterior() {
@@ -705,18 +705,75 @@
         divLista.innerHTML = html;
     }
 
-    function filtrarItens() {
-        let termo = document.getElementById('filtro-busca').value.toLowerCase();
-        let itensOriginais = [];
+    // Função de Busca Global que varre Filmes, Séries, Canais e Categorias
+    function executarBuscaGlobal() {
+        let termo = document.getElementById('filtro-busca').value.trim().toLowerCase();
 
-        if (tipoAtual === 'Series' && serieAtual) {
-            itensOriginais = estruturaGlobal.Series[subpastaAtual][serieAtual] || [];
-        } else {
-            itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual] || [];
+        if (termo === '') {
+            if (tipoAtual === '') {
+                voltarParaTipos();
+            } else if (subpastaAtual === '') {
+                abrirTipoPrincipal(tipoAtual);
+            } else if (tipoAtual === 'Series' && serieAtual === '') {
+                abrirSubpasta(subpastaAtual);
+            } else {
+                renderizarItens(estruturaGlobal[tipoAtual][subpastaAtual] || []);
+            }
+            return;
         }
 
-        let filtrados = itensOriginais.filter(i => i.nome.toLowerCase().includes(termo));
-        renderizarItens(filtrados);
+        // Se estiver dentro de uma lista de itens final (como episódios ou subpasta de filmes), filtra localmente
+        if (document.getElementById('view-itens').style.display === 'block') {
+            let itensOriginais = [];
+            if (tipoAtual === 'Series' && serieAtual) {
+                itensOriginais = estruturaGlobal.Series[subpastaAtual][serieAtual] || [];
+            } else if (subpastaAtual) {
+                itensOriginais = estruturaGlobal[tipoAtual][subpastaAtual] || [];
+            }
+            let filtrados = itensOriginais.filter(i => i.nome.toLowerCase().includes(termo));
+            renderizarItens(filtrados);
+            return;
+        }
+
+        // Caso contrário, executa uma pesquisa global pela estrutura inteira
+        document.getElementById('view-tipos').style.display = 'none';
+        document.getElementById('view-subpastas').style.display = 'none';
+        document.getElementById('view-series-pastas').style.display = 'none';
+        document.getElementById('view-itens').style.display = 'block';
+        document.getElementById('breadcrumb').innerText = `Busca por: "${termo}"`;
+        document.getElementById('btn-voltar-itens').onclick = voltarParaTipos;
+
+        let resultados = [];
+
+        // Busca em Filmes e Canais
+        ['Canais', 'Filmes'].forEach(categoria => {
+            Object.keys(estruturaGlobal[categoria]).forEach(grupo => {
+                estruturaGlobal[categoria][grupo].forEach(item => {
+                    if (item.nome.toLowerCase().includes(termo)) {
+                        resultados.push(item);
+                    }
+                });
+            });
+        });
+
+        // Busca em Séries (títulos de séries e nomes de episódios)
+        Object.keys(estruturaGlobal.Series).forEach(grupo => {
+            Object.keys(estruturaGlobal.Series[grupo]).forEach(nomeSerie => {
+                if (nomeSerie.toLowerCase().includes(termo)) {
+                    // Adiciona os episódios se o nome da série corresponder
+                    estruturaGlobal.Series[grupo][nomeSerie].forEach(ep => resultados.push(ep));
+                } else {
+                    // Adiciona episódios individuais que casem com a busca
+                    estruturaGlobal.Series[grupo][nomeSerie].forEach(ep => {
+                        if (ep.nome.toLowerCase().includes(termo)) {
+                            resultados.push(ep);
+                        }
+                    });
+                }
+            });
+        });
+
+        renderizarItens(resultados);
     }
 
     function reproduzirStream(url, nome) {
@@ -922,7 +979,7 @@
         let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
         let div = document.getElementById('lista-admins');
         if (admins.length === 0) {
-            div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum admin cadastrado.</p>';
+            div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenum admin cadastrado.</p>';
             return;
         }
         let html = '<ul style="font-size: 13px;">';
