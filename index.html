@@ -387,6 +387,207 @@
     </div>
 </div>
 
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, get, child, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AiZaSyAuqiA5gi-dj3KYPFtdmk9Q2IGvCMEh7jo",
+        authDomain: "nemo-iptv.firebaseapp.com",
+        databaseURL: "https://nemo-iptv-default-rtdb.firebaseio.com",
+        projectId: "nemo-iptv",
+        storageBucket: "nemo-iptv.firebasestorage.app",
+        messagingSenderId: "554396569177",
+        appId: "1:554396569177:web:bb9dcc839d74c8c9b7ab48",
+        measurementId: "G-LENGTFC090"
+    };
+
+    // Inicializa o Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Arrays Locais de Controle
+    window.dbAdmins = [];
+    window.dbClientes = [];
+    window.dbSolicitacoes = [];
+
+    // OUVINTES EM TEMPO REAL (REALTIME DATABASE)
+    const refAdmins = ref(db, 'admins');
+    onValue(refAdmins, (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+            window.dbAdmins = Array.isArray(val) ? val : Object.values(val);
+        } else {
+            window.dbAdmins = [{ user: 'admin', pass: 'admin123', email: 'admin@nemo.com', ativo: true }];
+            set(ref(db, 'admins'), window.dbAdmins);
+        }
+        localStorage.setItem('nemo_admins', JSON.stringify(window.dbAdmins));
+        if (window.adminLogadoAtual) window.atualizarListaAdmins();
+    });
+
+    const refClientes = ref(db, 'clientes');
+    onValue(refClientes, (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+            window.dbClientes = Array.isArray(val) ? val : Object.values(val);
+        } else {
+            window.dbClientes = [];
+        }
+        localStorage.setItem('nemo_clientes', JSON.stringify(window.dbClientes));
+        if (window.adminLogadoAtual) window.atualizarListaClientes();
+    });
+
+    const refSolicitacoes = ref(db, 'solicitacoes');
+    onValue(refSolicitacoes, (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+            window.dbSolicitacoes = Array.isArray(val) ? val : Object.values(val);
+        } else {
+            window.dbSolicitacoes = [];
+        }
+        localStorage.setItem('nemo_solicitacoes', JSON.stringify(window.dbSolicitacoes));
+        if (window.adminLogadoAtual) window.atualizarListaSolicitacoes();
+    });
+
+    // REESCRITA DAS FUNÇÕES PARA SINCRONIZAR COM O FIREBASE
+
+    window.cadastrarCliente = function() {
+        let user = document.getElementById('novo-user').value.trim();
+        let pass = document.getElementById('novo-pass').value.trim();
+        if (!user || !pass) return alert('Preencha os campos.');
+
+        if (window.dbClientes.some(c => c.user === user)) return alert('Cliente já existe!');
+
+        let venc = new Date();
+        venc.setDate(venc.getDate() + 30);
+        let mesAtualStr = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+        window.dbClientes.push({ 
+            user, 
+            pass, 
+            vencimento: venc.toLocaleDateString('pt-BR'),
+            historico: [{ mes: mesAtualStr, dataPagamento: new Date().toLocaleDateString('pt-BR') }]
+        });
+
+        set(ref(db, 'clientes'), window.dbClientes)
+            .then(() => {
+                alert('Cliente cadastrado com sucesso no Firebase!');
+                document.getElementById('novo-user').value = '';
+                document.getElementById('novo-pass').value = '';
+            })
+            .catch(err => alert('Erro ao salvar no Firebase: ' + err.message));
+    };
+
+    window.adicionarMesPagamento = function(index) {
+        let cliente = window.dbClientes[index];
+        let novoMes = prompt("Digite o nome do mês/referência pago (Ex: Agosto/2026):", new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
+        if (!novoMes) return;
+
+        if (!cliente.historico) cliente.historico = [];
+        cliente.historico.push({ mes: novoMes, dataPagamento: new Date().toLocaleDateString('pt-BR') });
+
+        let partes = cliente.vencimento.split('/');
+        let dataVenc = new Date(partes[2], partes[1] - 1, partes[0]);
+        dataVenc.setDate(dataVenc.getDate() + 30);
+        cliente.vencimento = dataVenc.toLocaleDateString('pt-BR');
+
+        set(ref(db, 'clientes'), window.dbClientes)
+            .then(() => alert(`Pagamento registrado com sucesso para ${cliente.user}!`))
+            .catch(err => alert('Erro ao atualizar no Firebase: ' + err.message));
+    };
+
+    window.removerCliente = function(index) {
+        window.dbClientes.splice(index, 1);
+        set(ref(db, 'clientes'), window.dbClientes);
+    };
+
+    window.cadastrarAdmin = function() {
+        let user = document.getElementById('novo-admin-user').value.trim();
+        let pass = document.getElementById('novo-admin-pass').value.trim();
+        let email = document.getElementById('novo-admin-email').value.trim();
+        if (!user || !pass || !email) return alert('Preencha todos os campos do admin.');
+
+        if (window.dbAdmins.some(a => a.user === user)) return alert('Admin já existe!');
+
+        window.dbAdmins.push({ user, pass, email, ativo: true });
+        set(ref(db, 'admins'), window.dbAdmins)
+            .then(() => {
+                alert('Administrador cadastrado com sucesso no Firebase!');
+                document.getElementById('novo-admin-user').value = '';
+                document.getElementById('novo-admin-pass').value = '';
+                document.getElementById('novo-admin-email').value = '';
+            })
+            .catch(err => alert('Erro ao salvar no Firebase: ' + err.message));
+    };
+
+    window.alterarMinhaSenha = function() {
+        let senhaAtual = document.getElementById('admin-senha-atual').value.trim();
+        let senhaNova = document.getElementById('admin-senha-nova').value.trim();
+
+        if (!senhaAtual || !senhaNova) {
+            alert('Preencha a senha atual e a nova senha.');
+            return;
+        }
+
+        let index = window.dbAdmins.findIndex(a => a.user === window.adminLogadoAtual);
+
+        if (index !== -1) {
+            if (window.dbAdmins[index].pass !== senhaAtual) {
+                alert('A senha atual informada está incorreta.');
+                return;
+            }
+            window.dbAdmins[index].pass = senhaNova;
+            set(ref(db, 'admins'), window.dbAdmins)
+                .then(() => {
+                    alert('Sua senha foi alterada com sucesso!');
+                    document.getElementById('admin-senha-atual').value = '';
+                    document.getElementById('admin-senha-nova').value = '';
+                });
+        }
+    };
+
+    window.alternarBloqueioAdmin = function(index) {
+        if (window.dbAdmins[index].user === window.adminLogadoAtual) {
+            alert('Você não pode bloquear o seu próprio acesso atual!');
+            return;
+        }
+        window.dbAdmins[index].ativo = window.dbAdmins[index].ativo === false;
+        set(ref(db, 'admins'), window.dbAdmins);
+    };
+
+    window.removerAdmin = function(index) {
+        if (window.dbAdmins[index].user === window.adminLogadoAtual) {
+            alert('Você não pode excluir a si mesmo enquanto está logado!');
+            return;
+        }
+        if (window.dbAdmins.length <= 1) {
+            alert('Você não pode excluir o último administrador restante!');
+            return;
+        }
+        window.dbAdmins.splice(index, 1);
+        set(ref(db, 'admins'), window.dbAdmins);
+    };
+
+    window.enviarSolicitacao = function(event) {
+        event.preventDefault();
+        let texto = document.getElementById('conteudo-pedido').value.trim();
+        let clienteAtual = document.getElementById('painel-user-nome').innerText;
+        if (!texto) return;
+
+        window.dbSolicitacoes.push({ cliente: clienteAtual, conteudo: texto, data: new Date().toLocaleDateString('pt-BR') });
+        set(ref(db, 'solicitacoes'), window.dbSolicitacoes)
+            .then(() => {
+                alert('Solicitação enviada!');
+                document.getElementById('conteudo-pedido').value = '';
+            });
+    };
+
+    window.removerSolicitacao = function(index) {
+        window.dbSolicitacoes.splice(index, 1);
+        set(ref(db, 'solicitacoes'), window.dbSolicitacoes);
+    };
+</script>
+
 <script>
     // URL Base Centralizada do Proxy
     const WORKER_PROXY = "https://meu-proxy-iptv-o9rr.onrender.com/proxy?url=";
@@ -398,7 +599,7 @@
     let hlsInstance = null;
     let mpegtsPlayer = null;
     let clienteLogadoGlobal = null;
-    let adminLogadoAtual = null;
+    window.adminLogadoAtual = null;
 
     function inicializarDados() {
         if (!localStorage.getItem('nemo_admins')) {
@@ -463,7 +664,6 @@
         }
     }
 
-    // Auxiliar para extrair nome limpo da série
     function extrairNomeSerie(nomeCompleto) {
         let limpo = nomeCompleto
             .replace(/s\d{2}\s*e\d{2}.*/i, '')
@@ -507,19 +707,15 @@
                 
                 let tipoCat = "Canais";
 
-                // REGRA 1: Checa se o arquivo é vídeo direto (Filme) pela extensão
                 const extensoesFilme = ['.mp4', '.mkv', '.avi', '.m4v', '.mov'];
                 let eVideoDireto = extensoesFilme.some(ext => lowerUrl.split('?')[0].endsWith(ext));
 
-                // REGRA 2: Força canais 24h para Canais ao Vivo
                 if (lowerGroup.includes('24h') || lowerGroup.includes('24 horas') || lowerNome.includes('24h') || lowerNome.includes('24 horas')) {
                     tipoCat = "Canais";
                 } 
-                // REGRA 3: Detecta Séries por padrões de temporada/episódio ou categoria
                 else if (lowerGroup.includes('serie') || lowerGroup.includes('série') || lowerGroup.includes('series') || /s\d{2}\s*e\d{2}|t\d{2}\s*ep\d{2}|temporada/i.test(lowerNome)) {
                     tipoCat = "Series";
                 } 
-                // REGRA 4: Detecta Filmes por grupo, extensão ou termos comuns VOD
                 else if (eVideoDireto || lowerGroup.includes('filme') || lowerGroup.includes('vod') || lowerGroup.includes('movie') || lowerGroup.includes('cinema') || lowerGroup.includes('ondemand') || lowerGroup.includes('pelicula') || lowerGroup.includes('4k') || lowerGroup.includes('1080p')) {
                     tipoCat = "Filmes";
                 }
@@ -705,7 +901,6 @@
         divLista.innerHTML = html;
     }
 
-    // Função de Busca Global que varre Filmes, Séries, Canais e Categorias
     function executarBuscaGlobal() {
         let termo = document.getElementById('filtro-busca').value.trim().toLowerCase();
 
@@ -722,7 +917,6 @@
             return;
         }
 
-        // Se estiver dentro de uma lista de itens final (como episódios ou subpasta de filmes), filtra localmente
         if (document.getElementById('view-itens').style.display === 'block') {
             let itensOriginais = [];
             if (tipoAtual === 'Series' && serieAtual) {
@@ -735,7 +929,6 @@
             return;
         }
 
-        // Caso contrário, executa uma pesquisa global pela estrutura inteira
         document.getElementById('view-tipos').style.display = 'none';
         document.getElementById('view-subpastas').style.display = 'none';
         document.getElementById('view-series-pastas').style.display = 'none';
@@ -745,7 +938,6 @@
 
         let resultados = [];
 
-        // Busca em Filmes e Canais
         ['Canais', 'Filmes'].forEach(categoria => {
             Object.keys(estruturaGlobal[categoria]).forEach(grupo => {
                 estruturaGlobal[categoria][grupo].forEach(item => {
@@ -756,14 +948,11 @@
             });
         });
 
-        // Busca em Séries (títulos de séries e nomes de episódios)
         Object.keys(estruturaGlobal.Series).forEach(grupo => {
             Object.keys(estruturaGlobal.Series[grupo]).forEach(nomeSerie => {
                 if (nomeSerie.toLowerCase().includes(termo)) {
-                    // Adiciona os episódios se o nome da série corresponder
                     estruturaGlobal.Series[grupo][nomeSerie].forEach(ep => resultados.push(ep));
                 } else {
-                    // Adiciona episódios individuais que casem com a busca
                     estruturaGlobal.Series[grupo][nomeSerie].forEach(ep => {
                         if (ep.nome.toLowerCase().includes(termo)) {
                             resultados.push(ep);
@@ -780,7 +969,6 @@
         let video = document.getElementById('web-player');
         document.getElementById('canal-reproduzindo').innerText = 'Reproduzindo: ' + nome;
 
-        // Limpa instâncias de players ativos
         if (hlsInstance) {
             hlsInstance.destroy();
             hlsInstance = null;
@@ -790,19 +978,16 @@
             mpegtsPlayer = null;
         }
 
-        // Garante que a URL base não venha duplicada do proxy
         let urlOriginal = url;
         if (url.includes('?url=')) {
             urlOriginal = decodeURIComponent(url.split('?url=')[1]);
         }
 
-        // Aplica o proxy para contornar problemas de CORS e mixed content
         let urlComProxy = WORKER_PROXY + encodeURIComponent(urlOriginal);
 
         function tentarTocar(streamUrl) {
             let urlLower = streamUrl.toLowerCase();
 
-            // CASO 1: Transmissões HLS (.m3u8)
             if ((urlLower.includes('.m3u8') || urlLower.includes('m3u8')) && Hls.isSupported()) {
                 hlsInstance = new Hls({
                     enableWorker: true,
@@ -820,7 +1005,6 @@
                     }
                 });
             } 
-            // CASO 2: Arquivos Diretos (MP4, MKV, AVI, etc.)
             else if (urlLower.includes('.mp4') || urlLower.includes('.mkv') || urlLower.includes('.avi')) {
                 video.src = streamUrl;
                 video.load();
@@ -832,7 +1016,6 @@
                     }
                 });
             }
-            // CASO 3: Streams MPEG-TS (.ts ou links de TV sem extensão)
             else if (mpegts.getFeatureList().mseLivePlayback) {
                 mpegtsPlayer = mpegts.createPlayer({
                     type: 'mpegts',
@@ -854,7 +1037,6 @@
                     }
                 });
             } 
-            // CASO FALLBACK: Player Nativo HTML5
             else {
                 video.src = streamUrl;
                 video.load();
@@ -881,7 +1063,7 @@
     function logarAdmin() {
         let user = document.getElementById('admin-user-input').value.trim();
         let pass = document.getElementById('admin-pass-input').value.trim();
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        let admins = window.dbAdmins.length ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
         let adminEncontrado = admins.find(a => a.user === user && a.pass === pass);
 
         if (adminEncontrado) {
@@ -889,7 +1071,7 @@
                 alert('Este acesso de Administrador está bloqueado temporariamente.');
                 return;
             }
-            adminLogadoAtual = user;
+            window.adminLogadoAtual = user;
             document.getElementById('admin-login-box').style.display = 'none';
             document.getElementById('admin-recuperar-box').style.display = 'none';
             document.getElementById('admin-painel').style.display = 'block';
@@ -900,31 +1082,6 @@
             atualizarListaSolicitacoes();
         } else {
             alert('Usuário ou senha de Administrador incorretos!');
-        }
-    }
-
-    function alterarMinhaSenha() {
-        let senhaAtual = document.getElementById('admin-senha-atual').value.trim();
-        let senhaNova = document.getElementById('admin-senha-nova').value.trim();
-
-        if (!senhaAtual || !senhaNova) {
-            alert('Preencha a senha atual e a nova senha.');
-            return;
-        }
-
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
-        let index = admins.findIndex(a => a.user === adminLogadoAtual);
-
-        if (index !== -1) {
-            if (admins[index].pass !== senhaAtual) {
-                alert('A senha atual informada está incorreta.');
-                return;
-            }
-            admins[index].pass = senhaNova;
-            localStorage.setItem('nemo_admins', JSON.stringify(admins));
-            alert('Sua senha foi alterada com sucesso!');
-            document.getElementById('admin-senha-atual').value = '';
-            document.getElementById('admin-senha-nova').value = '';
         }
     }
 
@@ -945,7 +1102,7 @@
             return;
         }
 
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        let admins = window.dbAdmins.length ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
         let adminEncontrado = admins.find(a => a.email === email);
 
         if (adminEncontrado) {
@@ -957,29 +1114,11 @@
         }
     }
 
-    function cadastrarAdmin() {
-        let user = document.getElementById('novo-admin-user').value.trim();
-        let pass = document.getElementById('novo-admin-pass').value.trim();
-        let email = document.getElementById('novo-admin-email').value.trim();
-        if (!user || !pass || !email) return alert('Preencha todos os campos do admin.');
-
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
-        if (admins.some(a => a.user === user)) return alert('Admin já existe!');
-
-        admins.push({ user, pass, email, ativo: true });
-        localStorage.setItem('nemo_admins', JSON.stringify(admins));
-        alert('Administrador cadastrado!');
-        document.getElementById('novo-admin-user').value = '';
-        document.getElementById('novo-admin-pass').value = '';
-        document.getElementById('novo-admin-email').value = '';
-        atualizarListaAdmins();
-    }
-
     function atualizarListaAdmins() {
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
+        let admins = window.dbAdmins.length ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
         let div = document.getElementById('lista-admins');
         if (admins.length === 0) {
-            div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenum admin cadastrado.</p>';
+            div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum admin cadastrado.</p>';
             return;
         }
         let html = '<ul style="font-size: 13px;">';
@@ -997,59 +1136,8 @@
         div.innerHTML = html;
     }
 
-    function alternarBloqueioAdmin(index) {
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
-        if (admins[index].user === adminLogadoAtual) {
-            alert('Você não pode bloquear o seu próprio acesso atual!');
-            return;
-        }
-        admins[index].ativo = admins[index].ativo === false ? true : false;
-        localStorage.setItem('nemo_admins', JSON.stringify(admins));
-        atualizarListaAdmins();
-    }
-
-    function removerAdmin(index) {
-        let admins = JSON.parse(localStorage.getItem('nemo_admins')) || [];
-        if (admins[index].user === adminLogadoAtual) {
-            alert('Você não pode excluir a si mesmo enquanto está logado!');
-            return;
-        }
-        if (admins.length <= 1) {
-            alert('Você não pode excluir o último administrador restante!');
-            return;
-        }
-        admins.splice(index, 1);
-        localStorage.setItem('nemo_admins', JSON.stringify(admins));
-        atualizarListaAdmins();
-    }
-
-    function cadastrarCliente() {
-        let user = document.getElementById('novo-user').value.trim();
-        let pass = document.getElementById('novo-pass').value.trim();
-        if (!user || !pass) return alert('Preencha os campos.');
-
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
-        if (clientes.some(c => c.user === user)) return alert('Cliente já existe!');
-
-        let venc = new Date();
-        venc.setDate(venc.getDate() + 30);
-        let mesAtualStr = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-        clientes.push({ 
-            user, 
-            pass, 
-            vencimento: venc.toLocaleDateString('pt-BR'),
-            historico: [{ mes: mesAtualStr, dataPagamento: new Date().toLocaleDateString('pt-BR') }]
-        });
-        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
-        alert('Cliente cadastrado com sucesso!');
-        document.getElementById('novo-user').value = '';
-        document.getElementById('novo-pass').value = '';
-        atualizarListaClientes();
-    }
-
     function atualizarListaClientes() {
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
+        let clientes = window.dbClientes.length ? window.dbClientes : (JSON.parse(localStorage.getItem('nemo_clientes')) || []);
         let div = document.getElementById('lista-clientes');
         if (clientes.length === 0) {
             div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum cliente cadastrado.</p>';
@@ -1066,47 +1154,8 @@
         div.innerHTML = html;
     }
 
-    function adicionarMesPagamento(index) {
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
-        let cliente = clientes[index];
-        let novoMes = prompt("Digite o nome do mês/referência pago (Ex: Agosto/2026):", new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
-        if (!novoMes) return;
-
-        if (!cliente.historico) cliente.historico = [];
-        cliente.historico.push({ mes: novoMes, dataPagamento: new Date().toLocaleDateString('pt-BR') });
-
-        let partes = cliente.vencimento.split('/');
-        let dataVenc = new Date(partes[2], partes[1] - 1, partes[0]);
-        dataVenc.setDate(dataVenc.getDate() + 30);
-        cliente.vencimento = dataVenc.toLocaleDateString('pt-BR');
-
-        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
-        atualizarListaClientes();
-        alert(`Pagamento registrado com sucesso para ${cliente.user}!`);
-    }
-
-    function removerCliente(index) {
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
-        clientes.splice(index, 1);
-        localStorage.setItem('nemo_clientes', JSON.stringify(clientes));
-        atualizarListaClientes();
-    }
-
-    function enviarSolicitacao(event) {
-        event.preventDefault();
-        let texto = document.getElementById('conteudo-pedido').value.trim();
-        let clienteAtual = document.getElementById('painel-user-nome').innerText;
-        if (!texto) return;
-
-        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
-        solicitacoes.push({ cliente: clienteAtual, conteudo: texto, data: new Date().toLocaleDateString('pt-BR') });
-        localStorage.setItem('nemo_solicitacoes', JSON.stringify(solicitacoes));
-        alert('Solicitação enviada!');
-        document.getElementById('conteudo-pedido').value = '';
-    }
-
     function atualizarListaSolicitacoes() {
-        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
+        let solicitacoes = window.dbSolicitacoes.length ? window.dbSolicitacoes : (JSON.parse(localStorage.getItem('nemo_solicitacoes')) || []);
         let div = document.getElementById('lista-solicitacoes');
         if (solicitacoes.length === 0) {
             div.innerHTML = '<p style="color: #aaa; font-size: 13px; margin:0;">Nenhuma solicitação.</p>';
@@ -1120,15 +1169,8 @@
         div.innerHTML = html;
     }
 
-    function removerSolicitacao(index) {
-        let solicitacoes = JSON.parse(localStorage.getItem('nemo_solicitacoes')) || [];
-        solicitacoes.splice(index, 1);
-        localStorage.setItem('nemo_solicitacoes', JSON.stringify(solicitacoes));
-        atualizarListaSolicitacoes();
-    }
-
     function sairAdmin() {
-        adminLogadoAtual = null;
+        window.adminLogadoAtual = null;
         document.getElementById('admin-painel').style.display = 'none';
         document.getElementById('admin-login-box').style.display = 'block';
     }
@@ -1137,7 +1179,7 @@
         event.preventDefault();
         let user = document.getElementById('cli-user').value.trim();
         let pass = document.getElementById('cli-pass').value.trim();
-        let clientes = JSON.parse(localStorage.getItem('nemo_clientes')) || [];
+        let clientes = window.dbClientes.length ? window.dbClientes : (JSON.parse(localStorage.getItem('nemo_clientes')) || []);
         let clienteEncontrado = clientes.find(c => c.user === user && c.pass === pass);
 
         if (clienteEncontrado) {
