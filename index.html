@@ -85,7 +85,6 @@
             font-family: inherit;
         }
 
-        /* Estilo da caixa de busca com ícone de Lupa */
         .search-box-wrapper {
             position: relative;
             margin: 12px 0;
@@ -389,7 +388,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, get, child, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AiZaSyAuqiA5gi-dj3KYPFtdmk9Q2IGvCMEh7jo",
@@ -402,21 +401,19 @@
         measurementId: "G-LENGTFC090"
     };
 
-    // Inicializa o Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Arrays Locais de Controle
     window.dbAdmins = [];
     window.dbClientes = [];
     window.dbSolicitacoes = [];
 
-    // OUVINTES EM TEMPO REAL (REALTIME DATABASE)
     const refAdmins = ref(db, 'admins');
     onValue(refAdmins, (snapshot) => {
         const val = snapshot.val();
         if (val) {
-            window.dbAdmins = Array.isArray(val) ? val : Object.values(val);
+            let lista = Array.isArray(val) ? val : Object.values(val);
+            window.dbAdmins = lista.filter(item => item !== null && item !== undefined);
         } else {
             window.dbAdmins = [{ user: 'admin', pass: 'admin123', email: 'admin@nemo.com', ativo: true }];
             set(ref(db, 'admins'), window.dbAdmins);
@@ -429,7 +426,8 @@
     onValue(refClientes, (snapshot) => {
         const val = snapshot.val();
         if (val) {
-            window.dbClientes = Array.isArray(val) ? val : Object.values(val);
+            let lista = Array.isArray(val) ? val : Object.values(val);
+            window.dbClientes = lista.filter(item => item !== null && item !== undefined);
         } else {
             window.dbClientes = [];
         }
@@ -441,7 +439,8 @@
     onValue(refSolicitacoes, (snapshot) => {
         const val = snapshot.val();
         if (val) {
-            window.dbSolicitacoes = Array.isArray(val) ? val : Object.values(val);
+            let lista = Array.isArray(val) ? val : Object.values(val);
+            window.dbSolicitacoes = lista.filter(item => item !== null && item !== undefined);
         } else {
             window.dbSolicitacoes = [];
         }
@@ -449,14 +448,12 @@
         if (window.adminLogadoAtual) window.atualizarListaSolicitacoes();
     });
 
-    // REESCRITA DAS FUNÇÕES PARA SINCRONIZAR COM O FIREBASE
-
     window.cadastrarCliente = function() {
         let user = document.getElementById('novo-user').value.trim();
         let pass = document.getElementById('novo-pass').value.trim();
         if (!user || !pass) return alert('Preencha os campos.');
 
-        if (window.dbClientes.some(c => c.user === user)) return alert('Cliente já existe!');
+        if (window.dbClientes.some(c => c && c.user === user)) return alert('Cliente já existe!');
 
         let venc = new Date();
         venc.setDate(venc.getDate() + 30);
@@ -480,6 +477,8 @@
 
     window.adicionarMesPagamento = function(index) {
         let cliente = window.dbClientes[index];
+        if (!cliente) return;
+
         let novoMes = prompt("Digite o nome do mês/referência pago (Ex: Agosto/2026):", new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
         if (!novoMes) return;
 
@@ -507,7 +506,7 @@
         let email = document.getElementById('novo-admin-email').value.trim();
         if (!user || !pass || !email) return alert('Preencha todos os campos do admin.');
 
-        if (window.dbAdmins.some(a => a.user === user)) return alert('Admin já existe!');
+        if (window.dbAdmins.some(a => a && a.user === user)) return alert('Admin já existe!');
 
         window.dbAdmins.push({ user, pass, email, ativo: true });
         set(ref(db, 'admins'), window.dbAdmins)
@@ -529,7 +528,7 @@
             return;
         }
 
-        let index = window.dbAdmins.findIndex(a => a.user === window.adminLogadoAtual);
+        let index = window.dbAdmins.findIndex(a => a && a.user === window.adminLogadoAtual);
 
         if (index !== -1) {
             if (window.dbAdmins[index].pass !== senhaAtual) {
@@ -547,6 +546,8 @@
     };
 
     window.alternarBloqueioAdmin = function(index) {
+        if (!window.dbAdmins[index]) return;
+
         if (window.dbAdmins[index].user === window.adminLogadoAtual) {
             alert('Você não pode bloquear o seu próprio acesso atual!');
             return;
@@ -556,6 +557,8 @@
     };
 
     window.removerAdmin = function(index) {
+        if (!window.dbAdmins[index]) return;
+
         if (window.dbAdmins[index].user === window.adminLogadoAtual) {
             alert('Você não pode excluir a si mesmo enquanto está logado!');
             return;
@@ -589,7 +592,6 @@
 </script>
 
 <script>
-    // URL Base Centralizada do Proxy
     const WORKER_PROXY = "https://meu-proxy-iptv-o9rr.onrender.com/proxy?url=";
 
     let estruturaGlobal = { Canais: {}, Filmes: {}, Series: {} };
@@ -1063,8 +1065,9 @@
     function logarAdmin() {
         let user = document.getElementById('admin-user-input').value.trim();
         let pass = document.getElementById('admin-pass-input').value.trim();
-        let admins = window.dbAdmins.length ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
-        let adminEncontrado = admins.find(a => a.user === user && a.pass === pass);
+        let admins = (window.dbAdmins && window.dbAdmins.length) ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
+        
+        let adminEncontrado = admins.find(a => a && a.user === user && a.pass === pass);
 
         if (adminEncontrado) {
             if (adminEncontrado.ativo === false) {
@@ -1102,8 +1105,8 @@
             return;
         }
 
-        let admins = window.dbAdmins.length ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
-        let adminEncontrado = admins.find(a => a.email === email);
+        let admins = (window.dbAdmins && window.dbAdmins.length) ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
+        let adminEncontrado = admins.find(a => a && a.email === email);
 
         if (adminEncontrado) {
             alert(`Instruções e link de recuperação de senha enviados com sucesso para o e-mail: ${email}`);
@@ -1115,19 +1118,22 @@
     }
 
     function atualizarListaAdmins() {
-        let admins = window.dbAdmins.length ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
+        let admins = (window.dbAdmins && window.dbAdmins.length) ? window.dbAdmins : (JSON.parse(localStorage.getItem('nemo_admins')) || []);
         let div = document.getElementById('lista-admins');
-        if (admins.length === 0) {
+        let adminsValidos = admins.filter(a => a && a.user);
+        
+        if (adminsValidos.length === 0) {
             div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum admin cadastrado.</p>';
             return;
         }
         let html = '<ul style="font-size: 13px;">';
         admins.forEach((a, index) => {
+            if (!a || !a.user) return;
             let statusTexto = a.ativo !== false ? '<span style="color:var(--success);">Ativo</span>' : '<span style="color:var(--danger);">Bloqueado</span>';
             let textoBotaoBloqueio = a.ativo !== false ? 'Bloquear' : 'Desbloquear';
             let corBotaoBloqueio = a.ativo !== false ? '#ffc107' : '#28a745';
 
-            html += `<li><b>${a.user}</b> (${a.email}) - Status: ${statusTexto} 
+            html += `<li><b>${a.user}</b> (${a.email || 'sem e-mail'}) - Status: ${statusTexto} 
                 <button onclick="alternarBloqueioAdmin(${index})" style="background:${corBotaoBloqueio}; color:black; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;">${textoBotaoBloqueio}</button>
                 <button onclick="removerAdmin(${index})" style="background:red; color:white; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;">Excluir</button>
             </li>`;
@@ -1137,15 +1143,18 @@
     }
 
     function atualizarListaClientes() {
-        let clientes = window.dbClientes.length ? window.dbClientes : (JSON.parse(localStorage.getItem('nemo_clientes')) || []);
+        let clientes = (window.dbClientes && window.dbClientes.length) ? window.dbClientes : (JSON.parse(localStorage.getItem('nemo_clientes')) || []);
         let div = document.getElementById('lista-clientes');
-        if (clientes.length === 0) {
+        let clientesValidos = clientes.filter(c => c && c.user);
+
+        if (clientesValidos.length === 0) {
             div.innerHTML = '<p style="color: #aaa; font-size: 13px;">Nenhum cliente cadastrado.</p>';
             return;
         }
         let html = '<ul style="font-size: 13px;">';
         clientes.forEach((c, index) => {
-            html += `<li><b>${c.user}</b> - Vence: ${c.vencimento} 
+            if (!c || !c.user) return;
+            html += `<li><b>${c.user}</b> - Vence: ${c.vencimento || 'N/A'} 
                 <button onclick="adicionarMesPagamento(${index})" style="background:var(--success); color:white; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;" title="Registrar novo mês pago">+ Mês</button>
                 <button onclick="removerCliente(${index})" style="background:red; color:white; border:none; padding:2px 5px; border-radius:3px; cursor:pointer; margin-left:5px;">X</button>
             </li>`;
@@ -1155,14 +1164,17 @@
     }
 
     function atualizarListaSolicitacoes() {
-        let solicitacoes = window.dbSolicitacoes.length ? window.dbSolicitacoes : (JSON.parse(localStorage.getItem('nemo_solicitacoes')) || []);
+        let solicitacoes = (window.dbSolicitacoes && window.dbSolicitacoes.length) ? window.dbSolicitacoes : (JSON.parse(localStorage.getItem('nemo_solicitacoes')) || []);
         let div = document.getElementById('lista-solicitacoes');
-        if (solicitacoes.length === 0) {
+        let solicitacoesValidas = solicitacoes.filter(s => s && s.cliente);
+
+        if (solicitacoesValidas.length === 0) {
             div.innerHTML = '<p style="color: #aaa; font-size: 13px; margin:0;">Nenhuma solicitação.</p>';
             return;
         }
         let html = '<ul style="font-size: 13px; margin:0; padding-left:15px;">';
         solicitacoes.forEach((s, index) => {
+            if (!s || !s.cliente) return;
             html += `<li style="margin-bottom: 8px;"><b>${s.cliente}</b> pediu: "${s.conteudo}" <button onclick="removerSolicitacao(${index})" style="background:var(--success); color:white; border:none; padding:2px 6px; border-radius:3px; cursor:pointer; float:right;">Concluído</button></li>`;
         });
         html += '</ul>';
@@ -1176,18 +1188,21 @@
     }
 
     function fazerLoginCliente(event) {
-        event.preventDefault();
+        if (event) event.preventDefault();
+        
         let user = document.getElementById('cli-user').value.trim();
         let pass = document.getElementById('cli-pass').value.trim();
-        let clientes = window.dbClientes.length ? window.dbClientes : (JSON.parse(localStorage.getItem('nemo_clientes')) || []);
-        let clienteEncontrado = clientes.find(c => c.user === user && c.pass === pass);
+        let clientes = (window.dbClientes && window.dbClientes.length) ? window.dbClientes : (JSON.parse(localStorage.getItem('nemo_clientes')) || []);
+        
+        // Comparação segura e insensível a maiúsculas/minúsculas
+        let clienteEncontrado = clientes.find(c => c && c.user && c.user.toString().toLowerCase() === user.toLowerCase() && c.pass === pass);
 
         if (clienteEncontrado) {
             clienteLogadoGlobal = clienteEncontrado;
             document.getElementById('cliente-login-box').style.display = 'none';
             document.getElementById('cliente-painel').style.display = 'block';
             document.getElementById('painel-user-nome').innerText = clienteEncontrado.user;
-            document.getElementById('painel-vencimento').innerText = clienteEncontrado.vencimento;
+            document.getElementById('painel-vencimento').innerText = clienteEncontrado.vencimento || '--/--/----';
 
             let divHist = document.getElementById('cliente-historico-pagamentos');
             if (!clienteEncontrado.historico || clienteEncontrado.historico.length === 0) {
@@ -1195,7 +1210,9 @@
             } else {
                 let htmlHist = '<ul style="font-size:12px; margin:0; padding-left:15px;">';
                 clienteEncontrado.historico.forEach(h => {
-                    htmlHist += `<li>✅ <b>${h.mes}</b> (Pago em: ${h.dataPagamento})</li>`;
+                    if (h) {
+                        htmlHist += `<li>✅ <b>${h.mes || ''}</b> (Pago em: ${h.dataPagamento || ''})</li>`;
+                    }
                 });
                 htmlHist += '</ul>';
                 divHist.innerHTML = htmlHist;
